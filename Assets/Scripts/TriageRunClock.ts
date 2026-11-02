@@ -135,6 +135,11 @@ export class TriageRunClock extends BaseScriptComponent {
     return !!this.timesUp && this.timesUp.enabled
   }
 
+  /** The debrief hides the "Time's up" panel a few seconds after it opens (it is in the way of the map's labels). */
+  hideTimesUp(): void {
+    if (this.timesUp) this.timesUp.enabled = false
+  }
+
   /** "m:ss", rounded up so the display reads 0:00 only at the very end. */
   formatRemaining(): string {
     const s = Math.ceil(this.getRemaining() - 1e-6)

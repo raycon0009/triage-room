@@ -9,6 +9,8 @@ import {TriageCheckCards} from "../Scripts/TriageCheckCards"
 import {TriageRunClock} from "../Scripts/TriageRunClock"
 import {TriageCallOut} from "../Scripts/TriageCallOut"
 import {TriageBehindCue} from "../Scripts/TriageBehindCue"
+import {TriageDebrief} from "../Scripts/TriageDebrief"
+import type {CheckId, StartTag} from "../Scripts/TriageStartEngine"
 import {generateRun} from "../Scripts/TriageLayout"
 import {DefaultLeafInteractor} from "Leaf.lspkg/Interactors/interactor/DefaultLeafInteractor"
 import {findInteractableByName} from "Leaf.lspkg/Interactors/InteractableUtils"
@@ -204,9 +206,41 @@ export function getCue(): TriageBehindCue {
   return c
 }
 
+export function getDebrief(): TriageDebrief {
+  const c = sceneObjectOrThrow("TriageDebrief").getComponent(TriageDebrief.getTypeName()) as TriageDebrief
+  if (!c) {
+    throw new Error("TriageDebrief not found on TriageDebrief")
+  }
+  return c
+}
+
+/**
+ * Open casualty `id`'s card (viewer far away), press the START checks in order until a step decides, optionally press
+ * one more (extra) check after that, then tag. Returns whether the tag was accepted.
+ */
+export async function tagWithChecks(cards: TriageCheckCards, id: string, tag: StartTag, extraCheck?: CheckId): Promise<boolean> {
+  cards.openCard(id, "button")
+  await sleep(300) // the card is open for a moment: the time spent is recorded
+  const order: CheckId[] = ["breathing", "rate", "pulse", "commands"]
+  for (const check of order) {
+    if (cards.isTagPanelVisible()) {
+      break
+    }
+    cards.pressCheck(check)
+  }
+  if (extraCheck) {
+    cards.pressCheck(extraCheck)
+  }
+  return cards.chooseTag(tag)
+}
+
 /** Put every step 3 test stand-in back (viewer overrides) and return to a fresh, not-started run. */
 export function cleanup3(tm: TriageMain, cards: TriageCheckCards): void {
   getCue().setViewerOverride(null)
+  const deb = getDebrief()
+  deb.setViewerOverride(null)
+  deb.endGraceSeconds = 1.2
+  deb.timesUpSeconds = 3
   getClock().configure(180, 30)
   cleanup(tm, cards)
 }

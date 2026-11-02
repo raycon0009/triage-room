@@ -205,3 +205,47 @@ One capture of a started run with the preview camera at the start position looki
 
 ### Cleanup
 Temporary auto-start script and scene object (`TmpDemoStart`) deleted; generator script folder `tempAssetGen/` deleted. The project was saved from Lens Studio.
+
+## Build step 4: debrief map and scoring (2 Nov 2026)
+
+**Status: gate passed.** `node devpost/tests/start-engine.test.mjs` 12/12 brief cases; new `node devpost/tests/scoring.test.mjs` 18/18; LEAF 15/15 (13 from steps 1-3 + 2 new), run one at a time. After the last cosmetic edit to `TriageDebrief.ts` (text sizes, summary position/flash) I re-ran only the two debrief scenarios and the timer scenario (the Time's up panel); the other 12 last ran just before that edit, on code that edit did not touch.
+
+### What was built (`Assets/Scripts/`)
+- `TriageScoring.ts` (pure, plain-Node testable): per casualty a debrief entry (my tag vs correct tag as word + colour tag, status correct / wrong / missed, time, extra checks, one explanation line) and the summary (correct, wrong, missed, total extra checks, time used). An untagged casualty is "missed" ("Not reached") and counts as a wrong tag (`total - correct = wrong + missed`).
+- `TriageDebrief.ts` (scene object `TriageDebrief`):
+  - **End trigger:** when all four are tagged (and a called-out walker has finished walking) it waits 1.2 s and calls `TriageRunClock.endRun("all-tagged")`. Time's up already calls `endRun("time")`. The debrief opens on `onRunEnded` for either reason.
+  - **Map:** lies flat on the floor, centre 1.2 m in front of the start position, scale 0.16 (room 500 x 670 cm -> 80 x 107 cm). Each casualty is a square marker at their current position (a called-out walker is shown in the green circle): outer square = correct tag colour, inner square = my tag colour (none if missed; Expectant is dark grey with a white outline). The green MINOR zone and the start position ("You start here") are drawn.
+  - **Labels:** one upright label per casualty, turning about the vertical axis only to face the viewer, in a 2 x 2 block just beyond the map's far edge (so all four are in front of you; the person behind sits at the near edge of the map, which is out of sight when looking forward). Thin leader lines join each label to its marker. Each label: pose, "You" + my tag word, "Correct" + correct tag word (both coloured), "Time ... Extra checks n", and up to two lines of explanation. Anyone missed takes the lower row of their column (nearest eye level).
+  - **Not reached:** the label shows "NOT REACHED" (flashing, 1.8 Hz) with the correct tag still beside it; the map marker pulses; a large flashing "NOT REACHED" floats over the real casualty; and the summary line flashes too.
+  - **Summary line** (upright, above the labels): "3 of 4 correct · 1 missed · 0 extra checks · 0:04 used", with a small heading ("Time's up" / "Everyone tagged").
+  - **Explanations** (one short line, only where it applies): walkers "Can walk → Green (real START reassesses walkers later)"; the Expectant case "Still not breathing after the airway was opened, so Expectant was the right call"; any wrong or missed tag gets its deciding START rule, e.g. "Rate 34 is over 30 → Red", "Radial pulse absent → Red", "Refill 3 s is over 2 → Red", "Cannot follow commands → Red".
+  - Arrow, groan, timer text, open card and call-out button were already off at `endRun` (step 3); the debrief tests assert it. The Time's up panel stays 3 s, then steps aside for the map (`TriageRunClock.hideTimesUp`).
+  - A new run (`regenerate`) clears the debrief. **Restart and shuffle-on-restart are not built (step 5).**
+- Edited: `TriageRunClock.ts` (`hideTimesUp`), `TriageLeafHelpers.ts` (`getDebrief`, `tagWithChecks`), `LeafIndex.ts`.
+
+### Decisions I made (change if you disagree)
+- The called-out walker's "time spent" is shown as "called out at m:ss" (the run time of the press); everyone else shows seconds the card was open.
+- A missed casualty also gets its START rule line (so you see what would have decided them); a missed walker gets the walker line.
+- The debrief waits 1.2 s after the last tag (and for a walking walker to arrive) before opening.
+- Time used = elapsed run time, capped at 3:00.
+- Labels stand beyond the far edge of the map rather than directly above each marker (the casualty behind sits at the near edge, out of view); leader lines show which marker each label belongs to.
+
+### LEAF (Lens Studio preview, SPECS 27): 15 of 15 pass
+New:
+- `triage-debrief-all-tagged`: three non-walkers tagged (A wrongly, Yellow, with one extra check; the others correctly), then the walker's call-out as the last tag. The debrief does not open before the walker has arrived; it then opens with reason "all-tagged". Every entry matches its record (tag, correct tag, time, extra checks); A shows YELLOW vs RED, "Extra checks 1", "Rate 34 is over 30 → Red", yellow and red text colours; summary 3 correct / 1 wrong / 0 missed / 1 extra check and the text; the map is flat, about 1.2 m in front, within 3 cm of the floor, markers at the real positions x 0.16 (within 1 cm), start marked; labels above the map, upright (no tilt) and facing the viewer (dot > 0.99); card, timer text, arrow, groan and call-out button off; no "Time's up" for this ending.
+- `triage-debrief-time-up-not-reached`: only X (Expectant) tagged, correctly; a shortened run ends by time. The debrief opens with reason "time", Time's up visible, cards locked; X's line says Expectant was the right call; the other three are missed: not reached, no tag of mine, correct tag shown, explanation (walker line / a START rule), flashing label, marker and text over the real person (within 5 cm of them, above head height), and the flash level really swings (> 0.3); summary exactly "1 of 4 correct · 3 missed · 0 extra checks · 0:03 used" and `total - correct = wrong + missed`; Time's up steps aside after its time.
+Unchanged, re-run: the other 13.
+
+### Failed or odd on the way (none failed twice)
+- `triage-debrief-all-tagged` failed once: the map marker for the called-out walker used their starting spot while the test (rightly) expected where they stand now. Fixed in `TriageDebrief.ts`; passed on the next run.
+- `RecompileTypeScriptTool` and `run_leaf_scenario` calls sometimes timed out on the tool side, and the Lens only advanced while the preview was being rendered (it stalled until I took a screenshot or pressed resume), so some scenarios ran for minutes of wall time. The Lens logs gave the real pass/fail. No Lens Studio dialog appeared. One "Widget is not initialized" error on a run was fixed by re-opening the LEAF panel.
+
+### Not proven / limits
+- Text size and the label block's position on real glasses: **feel unproven** (the preview's field of view is narrow; the 2 x 2 block is about 90 cm wide at about 1.8 m, so it needs a small head turn).
+- Flashing and colour contrast on the additive display: **feel unproven**.
+- The near edge of the map (where the casualty behind sits) is steeply below eye level when you stand at the start; the missed-person cues are the label, the summary flash and the flashing text over the real person, not the marker alone.
+- Viewer position in tests is a stand-in (`setViewerOverride`).
+- Done criterion 5 is covered for the debrief; Restart and a different layout per seed are step 5.
+
+### Capture (CapturePanelScreenshotTool only)
+One capture of the debrief after a run with the casualty behind (D, Yellow) never reached: the map on the floor, four upright labels in a 2 x 2 block with leader lines, "NOT REACHED" (flashing, caught at its dim phase) with YELLOW beside it, and the other three labels showing matching tags. The summary line sat above the frame. Taken from a temporary demo script (`TmpDemoDebrief`; scene object and script deleted before the commit, `Scene.scene` has no trace of it). `CaptureRuntimeViewTool` not used.

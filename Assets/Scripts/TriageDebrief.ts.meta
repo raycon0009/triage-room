@@ -1,0 +1,82 @@
+- !<AssetImportMetadata/05a0a125-ce28-4075-b1ad-98e109a4c9cf>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> c591bc69-54f0-4894-9485-d20b4740c70a
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> c591bc69-54f0-4894-9485-d20b4740c70a
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> e649f35f-5c34-4e24-8924-b8699c19cebb
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/e649f35f-5c34-4e24-8924-b8699c19cebb>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  VersionPrerelease: ""
+  UpdateOrder: 0
+  ComponentUid: d6fb371b-c26a-4fe9-9dd6-6c01803572a9
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    callOut: false
+    cameraObject: false
+    cards: false
+    clock: false
+    endGraceSeconds: false
+    labelHeightCm: false
+    main: false
+    mapForwardCm: false
+    mapScale: false
+    timesUpSeconds: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - main: !<MappingBased.AssignableType_1> 00000000-0000-0000-0000-000000000000
+      cards: !<MappingBased.AssignableType_2> 00000000-0000-0000-0000-000000000000
+      clock: !<MappingBased.AssignableType_3> 00000000-0000-0000-0000-000000000000
+      callOut: !<MappingBased.AssignableType_4> 00000000-0000-0000-0000-000000000000
+      cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      mapForwardCm: !<float> 120.000000
+      mapScale: 0.160000
+      labelHeightCm: !<float> 44.000000
+      endGraceSeconds: 1.200000
+      timesUpSeconds: !<float> 3.000000
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageDebrief - debrief map, scoring, end trigger (step 4)</span>"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">References</span>"}'
+    - '// @ui {"widget":"group_start", "label":"References"}'
+    - '// @input AssignableType_1 main {"hint":"Run orchestrator (room, casualty positions, new-run event)"}'
+    - '// @input AssignableType_2 cards {"hint":"Check cards (records: tag, time, extra checks)"}'
+    - '// @input AssignableType_3 clock {"hint":"Run clock (end state: onRunEnded, endRun)"}'
+    - '// @input AssignableType_4 callOut {"hint":"Call-out (the end waits until a called-out walker has arrived)"}'
+    - '// @input SceneObject cameraObject {"hint":"The camera object (labels face the viewer)"}'
+    - '// @ui {"widget":"group_end"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">Settings</span>"}'
+    - '// @ui {"widget":"group_start", "label":"Settings"}'
+    - '// @input float mapForwardCm = 120 {"hint":"Distance of the map centre in front of the start position (cm)", "widget":"slider", "min":60, "max":200, "step":5}'
+    - '// @input float mapScale = 0.16 {"hint":"Map scale: room cm to map cm", "widget":"slider", "min":0.08, "max":0.3, "step":0.01}'
+    - '// @input float labelHeightCm = 44 {"hint":"Height of the label centres above the floor (cm)", "widget":"slider", "min":20, "max":70, "step":1}'
+    - '// @input float endGraceSeconds = 1.2 {"hint":"Pause after the last tag before the debrief opens (s)", "widget":"slider", "min":0, "max":3, "step":0.1}'
+    - "// @input float timesUpSeconds = 3 {\"hint\":\"How long the Time's up panel stays once the debrief is open (s)\", \"widget\":\"slider\", \"min\":1, \"max\":8, \"step\":0.5}"
+    - '// @ui {"widget":"group_end"}'

@@ -13,6 +13,8 @@ import {TriageStartRulesScenario} from "./TriageStartRulesScenario"
 import {TriageCallOutScenario} from "./TriageCallOutScenario"
 import {TriageTimerScenario} from "./TriageTimerScenario"
 import {TriageBehindCueScenario} from "./TriageBehindCueScenario"
+import {TriageDebriefAllTaggedScenario} from "./TriageDebriefAllTaggedScenario"
+import {TriageDebriefTimeUpScenario} from "./TriageDebriefTimeUpScenario"
 
 @component
 export class LeafIndex extends BaseScriptComponent {
@@ -31,5 +33,7 @@ export class LeafIndex extends BaseScriptComponent {
     {id: "triage-callout-walker-only", typename: TriageCallOutScenario.getTypeName()},
     {id: "triage-timer-chime-and-time-up", typename: TriageTimerScenario.getTypeName()},
     {id: "triage-groan-and-arrow-behind", typename: TriageBehindCueScenario.getTypeName()},
+    {id: "triage-debrief-all-tagged", typename: TriageDebriefAllTaggedScenario.getTypeName()},
+    {id: "triage-debrief-time-up-not-reached", typename: TriageDebriefTimeUpScenario.getTypeName()},
   ]
 }

@@ -12,6 +12,7 @@
     - !<own> e9a17ecb-450d-403b-93c8-33d669cb347b
     - !<own> 858fbd64-1d4c-4128-83fb-596d9aba36b1
     - !<own> 00acae9e-ad5e-4591-a1f2-81c001c55b16
+    - !<own> 80c5b3db-0b8e-48a6-880a-6978f10fc3f1
   layers: !<Layers/267ee9a7-aff2-4f9d-9a49-f71214747d03>
     userLayers:
       - id: 1
@@ -1686,6 +1687,21 @@
     []
   Components:
     - !<own> 335c5f8b-2917-49e8-8af5-220696e9bc09
+- !<SceneObject/80c5b3db-0b8e-48a6-880a-6978f10fc3f1>
+  PrefabRemaps:
+    []
+  Name: TriageDebrief
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> f1ab50c0-8d10-463d-a4e3-2be5bcc9282e
 - !<SceneObject/82a4b4e8-283b-441c-8b94-9fdc50c958f2>
   PrefabRemaps:
     []
@@ -2918,6 +2934,35 @@
     []
   Components:
     []
+- !<ScriptComponent/f1ab50c0-8d10-463d-a4e3-2be5bcc9282e>
+  PrefabRemaps:
+    []
+  Name: TriageDebrief
+  Enabled: true
+  ScriptAsset: !<reference> c591bc69-54f0-4894-9485-d20b4740c70a
+  ScriptInputsDefault:
+    mapForwardCm: true
+    mapScale: true
+    labelHeightCm: true
+    endGraceSeconds: true
+    timesUpSeconds: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      main: !<MappingBased.AssignableType_1> 8bd4efb7-c95c-4092-b69e-a9e2ddea71ef
+      cards: !<MappingBased.AssignableType_2> 162f9314-fe26-44e8-ad38-75bd38f4cba1
+      clock: !<MappingBased.AssignableType_3> 3d70b4d1-8efe-4449-abe8-5e6f56484d24
+      callOut: !<MappingBased.AssignableType_4> bf34a16f-8a65-4259-a168-8396faee32a8
+      cameraObject: !<reference.SceneObject> 00000000-0000-0065-0000-000000000064
+      mapForwardCm: !<float> 120.000000
+      mapScale: 0.160000
+      labelHeightCm: !<float> 44.000000
+      endGraceSeconds: 1.200000
+      timesUpSeconds: !<float> 3.000000
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/f36287fd-ed56-442d-ba20-78f9ef6f3502>
   PrefabRemaps:
     []
