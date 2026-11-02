@@ -6,7 +6,9 @@
  * Uses: TriageStartEngine (pure rules), TriageMain (casualty objects, run events), SIK + UI Kit buttons.
  * Public API (for tests): openCard, closeCard, getOpenCasualtyId, getOpenReason, pressCheck, chooseTag,
  *   getCardLabels, isTagPanelVisible, getRecord, getRecords, setViewerOverride, onCasualtyTagged.
- * Must not: implement the timer, call-out, groan, arrow or debrief (later steps).
+ * Step 3 hooks (driven by other modules, which import this one - never the reverse): setLocked (run ended),
+ *   setTimerText (shown on the open card only), markCalledOut / showCalledOutTag (walker answers the call-out).
+ * Must not: own the timer, the walker's movement, the groan or arrow, or the debrief.
  */
 import { FlexLayout } from "SpectaclesUIKit.lspkg/Scripts/Components/Layout2D/Flex/FlexLayout"
 import { FlexItem } from "SpectaclesUIKit.lspkg/Scripts/Components/Layout2D/Flex/FlexItem"
@@ -33,6 +35,10 @@ export interface CasualtyRecord {
   decidingStep: number
   /** checks made after the deciding step (each +1) */
   extraChecks: number
+  /** true when the walker was tagged Green by the "Call out: walk to me" button (deciding step 0, no checks) */
+  calledOut: boolean
+  /** seconds into the run when the call-out was pressed (null if not called out) */
+  calledOutAtSeconds: number | null
 }
 
 type OpenReason = "proximity" | "button"
@@ -123,8 +129,13 @@ export class TriageCheckCards extends BaseScriptComponent {
 
   private builder: TriageFigureBuilder | null = null
   private dots: { [id: string]: DotUI } = {}
-  private records: { [id: string]: { checks: CheckId[]; presses: number; openSeconds: number; tag: StartTag | null } } = {}
+  private records: { [id: string]: { checks: CheckId[]; presses: number; openSeconds: number; tag: StartTag | null; calledOutAt: number | null } } = {}
   private dismissed: { [id: string]: boolean } = {}
+  /** step 3: the run has ended (time up / all tagged): no card may open */
+  private locked = false
+  private timerText = ""
+  private statusBase = ""
+  private standing: { [id: string]: boolean } = {}
 
   private cardRoot!: SceneObject
   private checkPanel!: SceneObject
@@ -219,8 +230,62 @@ export class TriageCheckCards extends BaseScriptComponent {
     return out
   }
 
+  /** Step 3: the run clock locks the cards when the run ends (and unlocks them for the next run). */
+  setLocked(locked: boolean): void {
+    this.locked = locked
+    if (locked) this.closeCard()
+  }
+
+  isLocked(): boolean {
+    return this.locked
+  }
+
+  /** Step 3: the run clock pushes the remaining time (e.g. "2:41"); it is shown on the open card only. */
+  setTimerText(text: string): void {
+    if (text === this.timerText) return
+    this.timerText = text
+    this.showStatus()
+  }
+
+  getTimerText(): string {
+    return this.timerText
+  }
+
+  private showStatus(): void {
+    if (!this.statusText) return
+    this.statusText.text = this.timerText ? this.statusBase + "   ·   " + this.timerText : this.statusBase
+  }
+
+  /**
+   * Step 3: the walker answers the call-out. Counts as tagging them Green at the deciding step (0, no checks, so
+   * 0 extra checks) with the run time recorded. Closes their card if it is open and hides their dot. The band
+   * and word appear when the walker reaches the green circle (showCalledOutTag).
+   */
+  markCalledOut(id: string, atSeconds: number): CasualtyRecord | null {
+    const r = this.records[id]
+    if (!r || r.tag !== null || !CASUALTY_TABLE[id].walks) return null
+    if (this.openId === id) this.closeCard()
+    r.tag = "Green"
+    r.calledOutAt = Math.round(atSeconds * 100) / 100
+    const dot = this.dots[id]
+    if (dot && !isNull(dot.root)) dot.root.enabled = false
+    const cas = this.main.getCasualtyObject(id)
+    const sphere = cas ? this.findByName(cas, "Dot_" + id) : null
+    if (sphere) sphere.enabled = false
+    this.standing[id] = true
+    const rec = this.getRecord(id)
+    print("TRIAGE_CALLED_OUT " + JSON.stringify(rec))
+    this._onTagged.invoke(rec)
+    return rec
+  }
+
+  /** Step 3: the green band and the word GREEN on the walker once they stand in the green circle. */
+  showCalledOutTag(id: string): void {
+    this.applyTag(id, "Green")
+  }
+
   openCard(id: string, reason: OpenReason): void {
-    if (!this.main.isStarted() || !this.records[id] || this.records[id].tag !== null) return
+    if (this.locked || !this.main.isStarted() || !this.records[id] || this.records[id].tag !== null) return
     if (this.openId === id) return
     this.openId = id
     this.openReason = reason
@@ -284,6 +349,8 @@ export class TriageCheckCards extends BaseScriptComponent {
       correctTag: def.correctTag,
       decidingStep: def.decidingStep,
       extraChecks: res.extraChecks,
+      calledOut: r.calledOutAt !== null,
+      calledOutAtSeconds: r.calledOutAt,
     }
   }
 
@@ -314,10 +381,11 @@ export class TriageCheckCards extends BaseScriptComponent {
     this.anchors = {}
     this.records = {}
     this.dismissed = {}
+    this.standing = {}
     this.closeCard()
     const state = this.main.getRunState()
     for (const c of state.casualties) {
-      this.records[c.id] = { checks: [], presses: 0, openSeconds: 0, tag: null }
+      this.records[c.id] = { checks: [], presses: 0, openSeconds: 0, tag: null, calledOutAt: null }
       const cas = this.main.getCasualtyObject(c.id)
       if (cas) {
         this.dots[c.id] = this.buildDot(cas, c.id)
@@ -358,7 +426,7 @@ export class TriageCheckCards extends BaseScriptComponent {
   }
 
   private tick(): void {
-    if (!this.main || !this.main.isStarted() || !this.cardRoot) return
+    if (!this.main || !this.main.isStarted() || !this.cardRoot || this.locked) return
     const dt = getDeltaTime()
     const viewer = this.viewerPos()
     if (this.cooldown > 0) this.cooldown -= dt
@@ -437,20 +505,34 @@ export class TriageCheckCards extends BaseScriptComponent {
     return { right: right, up: right.cross(look).normalize() }
   }
 
-  /** Sample points on the open casualty's head and torso (world cm). */
+  /** Sample points on the open casualty's head and torso (world cm): the torso box's centre and eight corners,
+   *  the head's centre and six points on its surface. The legs and arms are deliberately NOT sampled: the card
+   *  may overlap them, but never the head or torso. */
   private samplePoints(id: string): vec3[] {
     const a = this.anchors[id]
     const pts: vec3[] = []
     if (!a || !a.torso || isNull(a.torso)) return pts
-    const t = a.torso.getTransform().getWorldPosition()
-    pts.push(t)
+    const tt = a.torso.getTransform()
+    const c = tt.getWorldPosition()
+    const rot = tt.getWorldRotation()
+    const sc = tt.getWorldScale()
+    const u = this.main.boxUnitCm
+    const hx = (sc.x * u) / 2
+    const hy = (sc.y * u) / 2
+    const hz = (sc.z * u) / 2
+    pts.push(c)
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          pts.push(c.add(rot.multiplyVec3(new vec3(sx * hx, sy * hy, sz * hz))))
+        }
+      }
+    }
     if (a.head && !isNull(a.head)) {
       const h = a.head.getTransform().getWorldPosition()
       pts.push(h)
-      pts.push(new vec3((h.x + t.x) / 2, (h.y + t.y) / 2, (h.z + t.z) / 2))
-      const d = t.sub(h)
-      const len = d.length || 1
-      pts.push(t.add(d.uniformScale(22 / len))) // the far end of the torso
+      const r = 11
+      pts.push(h.add(new vec3(r, 0, 0)), h.add(new vec3(-r, 0, 0)), h.add(new vec3(0, r, 0)), h.add(new vec3(0, -r, 0)), h.add(new vec3(0, 0, r)), h.add(new vec3(0, 0, -r)))
     }
     return pts
   }
@@ -467,7 +549,7 @@ export class TriageCheckCards extends BaseScriptComponent {
       const t = depth / dn
       if (t >= 1) continue // the card is behind this point
       const hit = e.add(r.uniformScale(t)).sub(c)
-      const m = 0.5 + 9 * t // margin: about the head's own radius at the card's distance
+      const m = 0.5 + 1.5 * t // small safety margin; the sample points already span the head and torso
       const x = hit.dot(ax.right)
       const y = hit.dot(ax.up)
       if (Math.abs(x) < CHECK_W / 2 + m && y < CARD_TOP + m && y > -CARD_BOTTOM - m) return true
@@ -489,8 +571,9 @@ export class TriageCheckCards extends BaseScriptComponent {
     return worst
   }
 
-  /** Where the card should sit: along the view direction, a little below the centre of view; slid to the side
-   *  (or down) just enough that it does not cover the casualty's head or torso. */
+  /** Where the card should sit: along the view direction, a little below the centre of view. If that would cover
+   *  the casualty's head or torso it moves to the most central spot that does not (the legs and arms may be
+   *  covered), i.e. the one where the whole card, all four corners, stays closest to the centre of view. */
   private cardGoal(viewer: vec3, id: string | null): vec3 {
     const look = this.lookDir()
     const ax = this.axes(look)
@@ -507,7 +590,8 @@ export class TriageCheckCards extends BaseScriptComponent {
         for (const sgn of [side, -side]) {
           const pos = base.add(ax.right.uniformScale(sgn * k * 1.5)).sub(ax.up.uniformScale(v * 4))
           if (this.coveredAt(id, pos, viewer, look)) continue
-          const score = this.maxCornerAngle(pos, viewer, look) + 0.02 * (k * 1.5 + Math.abs(v) * 4) + (sgn === side ? 0 : 0.5)
+          // most central = smallest worst-corner angle; the tiny terms only break ties (prefer the shorter move)
+          const score = this.maxCornerAngle(pos, viewer, look) + 0.001 * (k * 1.5 + Math.abs(v) * 4) + (sgn === side ? 0 : 0.01)
           if (score < bestScore) {
             bestScore = score
             best = pos
@@ -583,7 +667,8 @@ export class TriageCheckCards extends BaseScriptComponent {
     const f = this.findings(id)
     const rec = this.records[id]
     this.titleText.text = def.poseLabel
-    this.statusText.text = f.walks ? "Can walk: Yes" : "Can walk: No"
+    this.statusBase = f.walks ? "Can walk: Yes" : "Can walk: No"
+    this.showStatus()
 
     const names: { key: string; check: CheckId }[] = [
       { key: "breathing", check: "breathing" },
@@ -612,7 +697,8 @@ export class TriageCheckCards extends BaseScriptComponent {
     const cas = this.main.getCasualtyObject(id)
     const dot = this.dots[id]
     if (!cas || !this.builder) return
-    this.builder.addTagBand(cas, id as CasualtyId, tag)
+    const stands = !!this.standing[id]
+    this.builder.addTagBand(cas, id as CasualtyId, tag, stands)
     if (dot) {
       dot.root.enabled = false
       const sphere = this.findByName(cas, "Dot_" + id)
@@ -620,7 +706,7 @@ export class TriageCheckCards extends BaseScriptComponent {
       if (!dot.word) {
         const w = global.scene.createSceneObject("Dot_Word_" + id)
         w.setParent(cas)
-        w.getTransform().setLocalPosition(new vec3(0, 112, 0))
+        w.getTransform().setLocalPosition(new vec3(0, stands ? 182 : 112, 0)) // above a standing walker's head
         const t = w.createComponent("Component.Text") as Text
         t.depthTest = true
         t.size = 150

@@ -10,6 +10,9 @@ import {TriageCardOpenScenario} from "./TriageCardOpenScenario"
 import {TriageCardResultsScenario} from "./TriageCardResultsScenario"
 import {TriageCardTagScenario} from "./TriageCardTagScenario"
 import {TriageStartRulesScenario} from "./TriageStartRulesScenario"
+import {TriageCallOutScenario} from "./TriageCallOutScenario"
+import {TriageTimerScenario} from "./TriageTimerScenario"
+import {TriageBehindCueScenario} from "./TriageBehindCueScenario"
 
 @component
 export class LeafIndex extends BaseScriptComponent {
@@ -25,5 +28,8 @@ export class LeafIndex extends BaseScriptComponent {
     {id: "triage-card-scripted-results-and-tag-gating", typename: TriageCardResultsScenario.getTypeName()},
     {id: "triage-tag-closes-card-adds-band", typename: TriageCardTagScenario.getTypeName()},
     {id: "triage-start-rules-in-lens", typename: TriageStartRulesScenario.getTypeName()},
+    {id: "triage-callout-walker-only", typename: TriageCallOutScenario.getTypeName()},
+    {id: "triage-timer-chime-and-time-up", typename: TriageTimerScenario.getTypeName()},
+    {id: "triage-groan-and-arrow-behind", typename: TriageBehindCueScenario.getTypeName()},
   ]
 }

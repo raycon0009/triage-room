@@ -163,3 +163,45 @@ One preview capture shows an open card ("Lying face up, still", casualty F) and 
 **Capture:** one preview capture looking down at casualty B (lying on side) with the card open to their right, upright, the head and torso clear, the connector line running to the dot. `CaptureRuntimeViewTool` not used.
 
 **Limit you should know about (not solved):** the preview's view is about 14 degrees to each side horizontally (the card at 70 cm is about 25 cm = +/-10 degrees; a casualty centred in view takes about +/-11 degrees). So when you look straight at someone, a 25 cm card that also must not cover them cannot fit fully in the view: in the capture roughly a third of the card is cut off on the right. It is placed as close to the centre as it can be, and turning your head a few degrees towards it brings it fully in view (the casualty is then no longer behind it). Ways to relax this, your call: a narrower card (about 20 cm), the card allowed to overlap the legs, or shown further away (0.9-1 m) when it has to be offset. Real-glasses field of view is similar or narrower, so this is "feel unproven".
+
+## Build step 3: call-out, timer, groan, arrow, chime (2 Nov 2026)
+
+**Status: gate passed.** START tests 12/12 (`node devpost/tests/start-engine.test.mjs`), LEAF 13/13 (10 from steps 1-2, one rewritten, 3 new), each scenario run on its own.
+
+### Card tweak (from step 2)
+- The card may now overlap the casualty's legs and arms, never the head or torso. The cover test samples the torso box (centre + 8 corners) and the head (centre + 6 surface points), with a small margin. When the centred spot would cover them, the card takes the clear spot that keeps all four corners closest to the centre of view (the old penalty for sliding away was removed).
+- `triage-card-opens-proximity-and-open` updated: independent rays check the torso's 8 corners as well as head/torso centres; new section stands to the side, looks at the feet and checks the card is over the legs (hidden point = legs) yet within 6 degrees of the view centre and not covering head or torso.
+
+### What was built (`Assets/Scripts/`)
+- `TriageRunClock.ts` (scene object `TriageClock`, child `ChimeAudio`): 3:00 timer starting on Start; pushes the remaining time to the card (shown in the card's status line, "Can walk: No   ·   2:41", nowhere else); chime at 0:30 left; end state `endRun(reason)` = closes any open card, locks cards, stops the clock, and for "time" shows a "Time's up" panel in the start view. Hook for step 4: `onRunEnded` ("time" | "all-tagged"), `isEnded()`, `getEndReason()`, `endRun("all-tagged")`. I did NOT wire "everyone tagged" to it (step 4 does that); no debrief map.
+- `TriageCallOut.ts` (scene object `TriageCallOut`, panel at 0, -14, -80 cm like the Start panel): big "Call out: walk to me" button (30 x 9 cm), appears on Start. Pressing it: the walker is recorded at once as tagged Green at deciding step 0, no checks, 0 extra checks, `calledOutAtSeconds` = run time of the press (new record fields `calledOut`, `calledOutAtSeconds`); the walker stands up (sitting pose blends into a standing one, 1.2 s), walks at 1.1 m/s with a leg/arm swing to 20 cm inside the green circle, faces the start position, and gets the green band + word GREEN on arrival. Nobody else moves. One use per run; the button goes away at the end.
+- `TriageBehindCue.ts` (scene object `TriageCue`): groan source = an AudioComponent (spatial: position + distance effects, linear fade 120-1200 cm) on a child of the casualty behind; first groan 1.5 s after Start, then every 5 s while that casualty is out of view and untagged. Arrow = small amber chevron, head-locked at 55 cm, at the edge of the view on the side to turn to (pulses gently), shown only while that casualty is out of view and untagged. "In view" = head or torso centre inside the camera's field of view.
+- Sounds (build-sfx, local synthesis, nothing downloaded): `Assets/GeneratedSFX/triage_groan.wav` (1.3 s mono, soft low "mmm", slow swell, gentle fall in pitch, breath under it, volume 0.5) and `triage_chime.wav` (two-note bell, plate reverb; plays at 0:30 left, not spatial).
+- Camera Object got an Audio Listener component (Lens Studio warned that spatial audio needs one).
+- Edited: `TriageCheckCards.ts` (setLocked, setTimerText, markCalledOut, showCalledOutTag, card tweak), `TriageFigureBuilder.ts` (standing pose, band on a standing torso), `TriageLeafHelpers.ts`, `LeafIndex.ts`.
+
+### Decisions I made (change if you disagree)
+- The groan and arrow are not latched: if you turn away again after seeing that casualty, the arrow returns and the groan resumes (until they are tagged).
+- The walker's tag is recorded at the moment of the press; the band and word appear when they arrive. Their "time" is the run time of the press, not a card-open time.
+- The walker stops 20 cm inside the circle's edge, not on its centre, so the word MINOR stays readable.
+- The timer lives in the card's status line, not in its own element, so the card's size did not change.
+- "Time's up" panel text: "Time's up" / "The drill has ended".
+- Arrow size default 0.7 (it looked large at 1.0 in the preview capture).
+
+### LEAF (Lens Studio preview, SPECS 27): 13 of 13 pass
+New: `triage-callout-walker-only` (real press of CallOutButton; walker tagged Green, 0 extra checks, no checks, time recorded; stands (head > 130 cm above floor), ends within 50 cm of the circle centre with band + GREEN; the other three did not move and are untagged; second call-out does nothing), `triage-timer-chime-and-time-up` (3:00 at Start; time shown on the open card only; chime exactly once at 0:30 left; a shortened 4 s run closes an open card at 0:00, shows Time's up, locks the cards, removes the call-out button, and a new run clears it), `triage-groan-and-arrow-behind` (groan source is under Casualty_<behind> and nowhere else, behind the start position; plays and repeats while out of view; arrow shown at the edge of the view, on the right side, while out of view; hidden once in view and the groan stops; returns when turned away; nothing after that casualty is tagged).
+Changed: `triage-card-opens-proximity-and-open`. Re-run unchanged: the other 9.
+- Failed once on the way: the timer scenario (my test jumped the clock without allowing for real time already elapsed); fixed in the test, passed on the next run. No scenario failed twice.
+
+### Not proven / limits
+- Audio was not heard: tests count play calls and check the source placement; I cannot listen to it. The groan's calmness and the chime volume are **feel unproven**. A first compile showed Lens Studio's warning about the missing Audio Listener, fixed before the final runs.
+- The timer test uses a shortened run and a clock jump (`debugAdvance`); the real 3:00 was not waited out.
+- Viewer position and look direction in tests are stand-ins (`setViewerOverride`); LEAF cannot move the preview camera. The real camera was checked once in the preview capture.
+- Pressing the call-out button with a real mouse/hand in Interactive Preview: only LEAF presses are proven (see step 2's note on mouse presses).
+- Preview field of view is narrow; the arrow is at the edge of it. Real-glasses comfort: feel unproven.
+
+### Capture (CapturePanelScreenshotTool only)
+One capture of a started run with the preview camera at the start position looking forward: the amber arrow at the right edge (the casualty behind is out of view) and the "Call out: walk to me" button in front. `CaptureRuntimeViewTool` not used.
+
+### Cleanup
+Temporary auto-start script and scene object (`TmpDemoStart`) deleted; generator script folder `tempAssetGen/` deleted. The project was saved from Lens Studio.

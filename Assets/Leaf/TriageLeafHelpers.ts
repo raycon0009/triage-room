@@ -6,6 +6,9 @@
 import {findSceneObjectByName} from "Leaf.lspkg/Utils/common/Utils"
 import {TriageMain, RunState} from "../Scripts/TriageMain"
 import {TriageCheckCards} from "../Scripts/TriageCheckCards"
+import {TriageRunClock} from "../Scripts/TriageRunClock"
+import {TriageCallOut} from "../Scripts/TriageCallOut"
+import {TriageBehindCue} from "../Scripts/TriageBehindCue"
 import {generateRun} from "../Scripts/TriageLayout"
 import {DefaultLeafInteractor} from "Leaf.lspkg/Interactors/interactor/DefaultLeafInteractor"
 import {findInteractableByName} from "Leaf.lspkg/Interactors/InteractableUtils"
@@ -165,4 +168,45 @@ export function cleanup(tm: TriageMain, cards: TriageCheckCards): void {
   cards.setViewerOverride(null)
   cards.closeCard()
   resetToFreshStart(tm)
+}
+
+// ---- build step 3 helpers (clock, call-out, groan, arrow) ----
+
+function sceneObjectOrThrow(objectName: string): SceneObject {
+  const o = findSceneObjectByName(objectName)
+  if (!o) {
+    throw new Error('Scene object "' + objectName + '" not found')
+  }
+  return o
+}
+
+export function getClock(): TriageRunClock {
+  const c = sceneObjectOrThrow("TriageClock").getComponent(TriageRunClock.getTypeName()) as TriageRunClock
+  if (!c) {
+    throw new Error("TriageRunClock not found on TriageClock")
+  }
+  return c
+}
+
+export function getCallOut(): TriageCallOut {
+  const c = sceneObjectOrThrow("TriageCallOut").getComponent(TriageCallOut.getTypeName()) as TriageCallOut
+  if (!c) {
+    throw new Error("TriageCallOut not found on TriageCallOut")
+  }
+  return c
+}
+
+export function getCue(): TriageBehindCue {
+  const c = sceneObjectOrThrow("TriageCue").getComponent(TriageBehindCue.getTypeName()) as TriageBehindCue
+  if (!c) {
+    throw new Error("TriageBehindCue not found on TriageCue")
+  }
+  return c
+}
+
+/** Put every step 3 test stand-in back (viewer overrides) and return to a fresh, not-started run. */
+export function cleanup3(tm: TriageMain, cards: TriageCheckCards): void {
+  getCue().setViewerOverride(null)
+  getClock().configure(180, 30)
+  cleanup(tm, cards)
 }

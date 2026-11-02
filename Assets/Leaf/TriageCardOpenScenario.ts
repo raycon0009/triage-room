@@ -4,7 +4,8 @@
  *  - it opens in the viewer's current view direction about 0.7 m away, slightly below the centre of view,
  *    looking straight ahead AND looking steeply down at a casualty (all buttons inside the view);
  *  - it is about 25 cm wide with buttons at least 4 cm tall;
- *  - it never hides the casualty's head or torso (checked independently with rays from the eye);
+ *  - it never hides the casualty's head or torso (checked independently with rays from the eye, incl. the torso's
+ *    eight corners), but it MAY cover the legs, and then sits as centrally as it can;
  *  - a line joins the card to its casualty's dot;
  *  - lazy follow: a small head turn leaves it where it is, a big turn brings it back into view.
  * The viewer position and look direction are test stand-ins (setViewerOverride): LEAF cannot move the preview camera.
@@ -33,6 +34,23 @@ function findByName(root: SceneObject, name: string): SceneObject | null {
     }
   }
   return null
+}
+
+/** The eight world-space corners of the torso box. */
+function torsoCorners(torso: SceneObject, unitCm: number): vec3[] {
+  const t = torso.getTransform()
+  const c = t.getWorldPosition()
+  const rot = t.getWorldRotation()
+  const s = t.getWorldScale()
+  const out: vec3[] = []
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        out.push(c.add(rot.multiplyVec3(new vec3((sx * s.x * unitCm) / 2, (sy * s.y * unitCm) / 2, (sz * s.z * unitCm) / 2))))
+      }
+    }
+  }
+  return out
 }
 
 /** Is world point q hidden behind the card rectangle (whole card incl. tag panel) from the eye? Zero margin. */
@@ -141,6 +159,9 @@ export class TriageCardOpenScenario extends Scenario {
     expect(hidesPoint(cardObj, viewer, hw)).toBe(false)
     expect(hidesPoint(cardObj, viewer, tw)).toBe(false)
     expect(hidesPoint(cardObj, viewer, hw.add(tw).uniformScale(0.5))).toBe(false)
+    for (const c of torsoCorners(torso, tm.boxUnitCm)) {
+      expect(hidesPoint(cardObj, viewer, c)).toBe(false) // all eight corners of the torso
+    }
     expect(cards.isCasualtyCovered("A")).toBe(false)
 
     // a line joins the card to the casualty's dot
@@ -172,6 +193,30 @@ export class TriageCardOpenScenario extends Scenario {
     await sleep(600)
     expect(cards.isCardVisible()).toBe(false)
     expect(cards.getConnector().visible).toBe(false)
+
+    // ---- the card may overlap the casualty's LEGS, but never the head or torso, and it then takes the most
+    //      central spot: stand to the side, look at the feet; the card sits right over the legs, near the centre of view
+    const legPos = (findByName(cas, "LegL") as SceneObject).getTransform().getWorldPosition()
+    const axis = new vec3(legPos.x - hw.x, 0, legPos.z - hw.z).normalize() // head -> feet, along the floor
+    const perp = new vec3(-axis.z, 0, axis.x)
+    const foot = legPos.add(axis.uniformScale(30))
+    const eyeP = new vec3(foot.x + perp.x * 90, 0, foot.z + perp.z * 90)
+    const lookAtFeet = foot.sub(eyeP)
+    cards.closeCard()
+    cards.setViewerOverride(eyeP, lookAtFeet)
+    await sleep(300)
+    cards.openCard("A", "button") // no-op if it already opened by proximity
+    await sleep(700)
+    expect(cards.getOpenCasualtyId()).toBe("A")
+    const cp = cardObj.getTransform().getWorldPosition()
+    expect(angleDeg(cp.sub(eyeP), lookAtFeet)).toBeLessThan(6) // central, not pushed to the side
+    expect(hidesPoint(cardObj, eyeP, legPos)).toBe(true) // it IS over the legs
+    expect(hidesPoint(cardObj, eyeP, hw)).toBe(false)
+    expect(hidesPoint(cardObj, eyeP, tw)).toBe(false)
+    for (const c of torsoCorners(torso, tm.boxUnitCm)) {
+      expect(hidesPoint(cardObj, eyeP, c)).toBe(false)
+    }
+    expect(cards.isCasualtyCovered("A")).toBe(false)
 
     cleanup(tm, cards)
   }

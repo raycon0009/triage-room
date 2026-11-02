@@ -9,6 +9,9 @@
     - !<own> 1c6bb66e-8e04-4a36-ab6f-04084fc8a45d
     - !<own> 06d72960-af0f-4363-8ab5-43d6b68eec69
     - !<own> 53730f6d-fa2c-44d4-ac29-8212e7ab798a
+    - !<own> e9a17ecb-450d-403b-93c8-33d669cb347b
+    - !<own> 858fbd64-1d4c-4128-83fb-596d9aba36b1
+    - !<own> 00acae9e-ad5e-4591-a1f2-81c001c55b16
   layers: !<Layers/267ee9a7-aff2-4f9d-9a49-f71214747d03>
     userLayers:
       - id: 1
@@ -38,6 +41,7 @@
   Components:
     - !<own> 00000000-0000-0065-0000-000000000065
     - !<own> e5553c8a-0b7e-4ef4-92d9-3e1318fb82c1
+    - !<own> 20de1a0b-324a-4542-a857-69c96a592f57
 - !<Camera/00000000-0000-0065-0000-000000000065>
   PrefabRemaps:
     []
@@ -179,6 +183,21 @@
   FalloffType: None
   FalloffRange: .inf
   ShadowType: None
+- !<SceneObject/00acae9e-ad5e-4591-a1f2-81c001c55b16>
+  PrefabRemaps:
+    []
+  Name: TriageCue
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> 09148c62-0e87-40cb-887e-81111d35bc41
 - !<SceneObject/012a3973-9507-4230-a6ff-2b8dfd2154fe>
   PrefabRemaps:
     []
@@ -389,6 +408,42 @@
     - !<own> 6a99bdcf-c194-46c1-ba16-945f1d48a1dd
   Components:
     []
+- !<ScriptComponent/09148c62-0e87-40cb-887e-81111d35bc41>
+  PrefabRemaps:
+    []
+  Name: TriageBehindCue
+  Enabled: true
+  ScriptAsset: !<reference> 5e4f35f0-918a-465f-8335-cd7b1c31b3a2
+  ScriptInputsDefault:
+    groanIntervalSeconds: true
+    firstGroanDelaySeconds: true
+    groanVolume: true
+    groanMinDistanceCm: true
+    groanMaxDistanceCm: true
+    arrowDistanceCm: true
+    arrowEdgeFraction: true
+    arrowColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      main: !<MappingBased.AssignableType_1> 8bd4efb7-c95c-4092-b69e-a9e2ddea71ef
+      cards: !<MappingBased.AssignableType_2> 162f9314-fe26-44e8-ad38-75bd38f4cba1
+      clock: !<MappingBased.AssignableType_3> 3d70b4d1-8efe-4449-abe8-5e6f56484d24
+      cameraObject: !<reference.SceneObject> 00000000-0000-0065-0000-000000000064
+      groanTrack: !<reference.AudioTrackAsset> c19c6844-db43-461b-9436-5623dc03dd43
+      groanIntervalSeconds: !<float> 5.000000
+      firstGroanDelaySeconds: 1.500000
+      groanVolume: 0.500000
+      groanMinDistanceCm: !<float> 120.000000
+      groanMaxDistanceCm: !<float> 1200.000000
+      arrowDistanceCm: !<float> 55.000000
+      arrowEdgeFraction: 0.800000
+      arrowScale: 0.700000
+      arrowColor: !<Vec4> {x: 1.000000, y: 0.850000, z: 0.400000, w: 1.000000}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/0a0e1d78-8246-4f5b-ab1a-fdc51837956d>
   PrefabRemaps:
     []
@@ -627,6 +682,11 @@
     []
   Components:
     - !<own> e1031f7e-3474-489f-a529-282f7192f812
+- !<AudioListenerComponent/20de1a0b-324a-4542-a857-69c96a592f57>
+  PrefabRemaps:
+    []
+  Name: Audio Listener
+  Enabled: true
 - !<SceneObject/23018601-1041-4785-a20e-9ad5ab722f95>
   PrefabRemaps:
     []
@@ -942,6 +1002,35 @@
     - !<own> 54130007-65c1-48d3-b9df-0866d8112e01
   Components:
     []
+- !<ScriptComponent/3d70b4d1-8efe-4449-abe8-5e6f56484d24>
+  PrefabRemaps:
+    []
+  Name: TriageRunClock
+  Enabled: true
+  ScriptAsset: !<reference> 8d8d27a0-86e0-4d5c-b463-924d4df94c75
+  ScriptInputsDefault:
+    durationSeconds: true
+    chimeAtSeconds: true
+    chimeVolume: true
+    timesUpText: true
+    timesUpSubText: true
+    textColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      main: !<MappingBased.AssignableType_1> 8bd4efb7-c95c-4092-b69e-a9e2ddea71ef
+      cards: !<MappingBased.AssignableType_2> 162f9314-fe26-44e8-ad38-75bd38f4cba1
+      chimeAudio: !<reference.AudioComponent> a9813bb9-f1a2-4189-bc47-f90bfba6251e
+      durationSeconds: !<float> 180.000000
+      chimeAtSeconds: !<float> 30.000000
+      chimeVolume: 0.700000
+      timesUpText: "Time's up"
+      timesUpSubText: The drill has ended
+      textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/3de2c7ea-1525-465a-9056-68565a4014a7>
   PrefabRemaps:
     []
@@ -1642,6 +1731,21 @@
     - !<own> 08e3cc22-f2e1-49fb-9ddc-145fe6547ce3
   Components:
     []
+- !<SceneObject/858fbd64-1d4c-4128-83fb-596d9aba36b1>
+  PrefabRemaps:
+    []
+  Name: TriageCallOut
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: -14.000000, z: -80.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> bf34a16f-8a65-4259-a168-8396faee32a8
 - !<SceneObject/859e1ef3-3021-4825-8626-f1dc323b9252>
   PrefabRemaps:
     []
@@ -1835,6 +1939,21 @@
     - !<own> e9454e66-5d09-4a8a-bcd7-dea762326a48
   Components:
     []
+- !<SceneObject/94a30f70-1792-492f-a2ea-14be22e15f2c>
+  PrefabRemaps:
+    []
+  Name: ChimeAudio
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> a9813bb9-f1a2-4189-bc47-f90bfba6251e
 - !<SceneObject/988c408a-99dc-47e6-b7c4-efbf4bf8dc3c>
   PrefabRemaps:
     []
@@ -2020,6 +2139,23 @@
     - !<own> 0c355300-e635-47c1-a8c3-5ddef30b8824
   Components:
     []
+- !<AudioComponent/a9813bb9-f1a2-4189-bc47-f90bfba6251e>
+  PrefabRemaps:
+    []
+  Name: Audio
+  Enabled: true
+  AudioTrack: !<reference> 4223e1fc-612c-4837-97ec-5351a68b3062
+  EnableAutoplayLoop: false
+  Volume: 1.000000
+  EnableMixToSnap: false
+  RecordVolume: 1.000000
+  EnableSpatialAudio: false
+  EnableDistanceEffect: false
+  CurveType: Logarithm
+  MinDistance: 0.000000
+  MaxDistance: 100.000000
+  EnableDirectivityEffect: false
+  EnablePositionEffect: false
 - !<SceneObject/a98a7d22-28b9-4357-97cd-1486e721ac5d>
   PrefabRemaps:
     []
@@ -2263,6 +2399,37 @@
     []
   Components:
     []
+- !<ScriptComponent/bf34a16f-8a65-4259-a168-8396faee32a8>
+  PrefabRemaps:
+    []
+  Name: TriageCallOut
+  Enabled: true
+  ScriptAsset: !<reference> a5a30cb0-4683-4639-8d23-c679d9cc0fc8
+  ScriptInputsDefault:
+    buttonLabel: true
+    buttonWidthCm: true
+    buttonHeightCm: true
+    walkSpeedCmPerSec: true
+    standSeconds: true
+    insideEdgeCm: true
+    textColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      main: !<MappingBased.AssignableType_1> 8bd4efb7-c95c-4092-b69e-a9e2ddea71ef
+      cards: !<MappingBased.AssignableType_2> 162f9314-fe26-44e8-ad38-75bd38f4cba1
+      clock: !<MappingBased.AssignableType_3> 3d70b4d1-8efe-4449-abe8-5e6f56484d24
+      buttonLabel: "Call out: walk to me"
+      buttonWidthCm: !<float> 30.000000
+      buttonHeightCm: !<float> 9.000000
+      walkSpeedCmPerSec: !<float> 110.000000
+      standSeconds: 1.200000
+      insideEdgeCm: !<float> 20.000000
+      textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/c11cc036-9217-45c7-aa77-98527cf7a8cc>
   PrefabRemaps:
     []
@@ -2705,6 +2872,21 @@
     Fingers_length: 0.000000
     Thumb_inflate: 0.000000
     Thumb_length: 0.000000
+- !<SceneObject/e9a17ecb-450d-403b-93c8-33d669cb347b>
+  PrefabRemaps:
+    []
+  Name: TriageClock
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    - !<own> 94a30f70-1792-492f-a2ea-14be22e15f2c
+  Components:
+    - !<own> 3d70b4d1-8efe-4449-abe8-5e6f56484d24
 - !<ScriptComponent/ea1bf8e1-1400-4fa3-bed0-4e556a7b4e96>
   PrefabRemaps:
     []

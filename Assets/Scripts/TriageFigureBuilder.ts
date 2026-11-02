@@ -16,7 +16,7 @@ export interface FigureResources {
   sphereUnitCm: number
 }
 
-interface Part {
+export interface Part {
   name: string
   kind: "box" | "sphere"
   pos: number[]
@@ -137,6 +137,33 @@ function poseParts(id: CasualtyId, pose: PoseKind): Part[] {
   }
 }
 
+/** The part list a casualty starts with (used by the walker's stand-up animation). */
+export function startingParts(id: CasualtyId): Part[] {
+  return poseParts(id, CASUALTY_TABLE[id].pose)
+}
+
+/** The walker standing upright (floor y=0): same part names as the sitting poses so the figure can blend into it. */
+export function standingParts(id: CasualtyId): Part[] {
+  const shirt = SHIRT[id]
+  const p: Part[] = [
+    box("Pelvis", [0, 82, 0], [34, 12, 20], PANTS),
+    box("LegL", [-9, 40, 0], [14, 80, 14], PANTS),
+    box("LegR", [9, 40, 0], [14, 80, 14], PANTS),
+    box("Torso", [0, 110, 0], [34, 50, 20], shirt),
+    ball("Head", [0, 152, 0], 22, SKIN),
+    box("ArmL", [-23, 108, 0], [9, 44, 9], SKIN),
+    box("ArmR", [23, 108, 0], [9, 44, 9], SKIN),
+  ]
+  if (id === "W1") {
+    p.push(box("Bandage", [23, 100, 0], [11, 13, 11], BANDAGE))
+    p.push(box("Patch", [23, 100, 6], [4, 5, 2], PATCH))
+  }
+  return p
+}
+
+export const STANDING_HIP_Y = 80
+export const STANDING_SHOULDER_Y = 130
+
 /** Tag band colours (light; Expectant is dark grey and gets a white outline, never black). */
 export const TAG_BAND_COLOUR: { [tag: string]: number[] } = {
   Red: [1, 0.3, 0.3],
@@ -184,9 +211,9 @@ export class TriageFigureBuilder {
    * long axis). Expectant ("Black") is dark grey with a white outline (white slab slightly thicker behind it).
    * Returns the band root ("TagBand_<id>").
    */
-  addTagBand(casualty: SceneObject, id: CasualtyId, tag: string): SceneObject {
+  addTagBand(casualty: SceneObject, id: CasualtyId, tag: string, standing: boolean = false): SceneObject {
     const def = CASUALTY_TABLE[id]
-    const torso = poseParts(id, def.pose).filter((p) => p.name === "Torso")[0]
+    const torso = (standing ? standingParts(id) : poseParts(id, def.pose)).filter((p) => p.name === "Torso")[0]
     const parent = casualty.getChild(0) // "Body"
     const root = global.scene.createSceneObject("TagBand_" + id)
     root.setParent(parent)

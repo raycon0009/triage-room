@@ -1,0 +1,94 @@
+- !<AssetImportMetadata/6ad664d8-ea19-47dc-ae2d-e09b90d85226>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> 5e4f35f0-918a-465f-8335-cd7b1c31b3a2
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> 5e4f35f0-918a-465f-8335-cd7b1c31b3a2
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> b469e65a-39f4-415c-be01-8fc998508651
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/b469e65a-39f4-415c-be01-8fc998508651>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  VersionPrerelease: ""
+  UpdateOrder: 0
+  ComponentUid: a0cc64a3-61e9-4b0a-8957-eea639a5f10f
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    arrowColor: false
+    arrowDistanceCm: false
+    arrowEdgeFraction: false
+    arrowScale: false
+    cameraObject: false
+    cards: false
+    clock: false
+    firstGroanDelaySeconds: false
+    groanIntervalSeconds: false
+    groanMaxDistanceCm: false
+    groanMinDistanceCm: false
+    groanTrack: false
+    groanVolume: false
+    main: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - main: !<MappingBased.AssignableType_1> 00000000-0000-0000-0000-000000000000
+      cards: !<MappingBased.AssignableType_2> 00000000-0000-0000-0000-000000000000
+      clock: !<MappingBased.AssignableType_3> 00000000-0000-0000-0000-000000000000
+      cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      groanTrack: !<reference.AudioTrackAsset> 00000000-0000-0000-0000-000000000000
+      groanIntervalSeconds: !<float> 5.000000
+      firstGroanDelaySeconds: 1.500000
+      groanVolume: 0.500000
+      groanMinDistanceCm: !<float> 120.000000
+      groanMaxDistanceCm: !<float> 1200.000000
+      arrowDistanceCm: !<float> 55.000000
+      arrowEdgeFraction: 0.800000
+      arrowScale: !<float> 1.000000
+      arrowColor: !<Vec4> {x: 1.000000, y: 0.850000, z: 0.400000, w: 1.000000}
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageBehindCue - groan and arrow (step 3)</span>"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">References</span>"}'
+    - '// @ui {"widget":"group_start", "label":"References"}'
+    - '// @input AssignableType_1 main {"hint":"Run orchestrator (casualty objects, Start / new run events)"}'
+    - '// @input AssignableType_2 cards {"hint":"Check cards (is the casualty behind tagged yet?)"}'
+    - '// @input AssignableType_3 clock {"hint":"Run clock (the cue is off before Start and after the run has ended)"}'
+    - '// @input SceneObject cameraObject {"hint":"The camera object (viewer eye position / look direction / field of view)"}'
+    - '// @input Asset.AudioTrackAsset groanTrack {"hint":"The groan sound (generated with build-sfx, Assets/GeneratedSFX/triage_groan.wav)"}'
+    - '// @ui {"widget":"group_end"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">Settings</span>"}'
+    - '// @ui {"widget":"group_start", "label":"Settings"}'
+    - '// @input float groanIntervalSeconds = 5 {"hint":"Seconds between groans while the casualty is out of view", "widget":"slider", "min":2, "max":12, "step":0.5}'
+    - '// @input float firstGroanDelaySeconds = 1.5 {"hint":"Seconds after Start before the first groan", "widget":"slider", "min":0, "max":5, "step":0.1}'
+    - '// @input float groanVolume = 0.5 {"hint":"Groan volume (kept soft)", "widget":"slider", "min":0.1, "max":1, "step":0.05}'
+    - '// @input float groanMinDistanceCm = 120 {"hint":"The groan is at full volume within this distance (cm)", "widget":"slider", "min":50, "max":400, "step":10}'
+    - '// @input float groanMaxDistanceCm = 1200 {"hint":"The groan fades to nothing at this distance (cm)", "widget":"slider", "min":300, "max":2000, "step":50}'
+    - '// @input float arrowDistanceCm = 55 {"hint":"Distance of the arrow from the eyes (cm)", "widget":"slider", "min":30, "max":100, "step":1}'
+    - '// @input float arrowEdgeFraction = 0.8 {"hint":"How close to the edge of the view the arrow sits (fraction of the half-width)", "widget":"slider", "min":0.5, "max":0.95, "step":0.01}'
+    - '// @input float arrowScale = 0.7 {"hint":"Arrow size multiplier (the arrow is about 5 cm long at 1)", "widget":"slider", "min":0.5, "max":2, "step":0.1}'
+    - '// @input vec4 arrowColor = "{1,0.85,0.4,1}" {"hint":"Arrow colour (keep it light and bright; black is invisible on additive displays)", "widget":"color"}'
+    - '// @ui {"widget":"group_end"}'
