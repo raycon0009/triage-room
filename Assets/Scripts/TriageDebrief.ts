@@ -445,6 +445,8 @@ export class TriageDebrief extends BaseScriptComponent {
       raw.push(
         buildEntry({
           def: CASUALTY_TABLE[r.id],
+          poseLabel: this.main.getCasualtyPose(r.id).label,
+          poseShort: this.main.getCasualtyPose(r.id).short,
           tag: r.tag,
           openSeconds: r.openSeconds,
           extraChecks: r.extraChecks,

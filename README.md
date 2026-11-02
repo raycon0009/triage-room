@@ -13,6 +13,8 @@ A timed mass-casualty triage drill for Snap Spectacles, built in Lens Studio. It
 5. Listen for the groan behind you, and find that casualty before time runs out.
 6. When all are tagged or time is up, a debrief shows each casualty: your tag, the correct tag, the rule that decides it, time taken, extra checks, and anyone you never reached. Restart gives a new layout.
 
+Poses vary between runs, so you can't tag by appearance — you have to check.
+
 ## Open it
 
 - Lens Studio 5.23.2. Open `Triage-room.esproj`.

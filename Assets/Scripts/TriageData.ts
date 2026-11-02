@@ -16,6 +16,60 @@ export type PoseKind =
   | "lying_groaning"
   | "sitting_dazed"
   | "lying_face_up_still"
+  | "sitting_knees_up"
+  | "sitting_leaning_back"
+  | "lying_back_knee_up"
+  | "lying_back_arm_up"
+
+export type PoseGroup = "lying" | "sitting" | "slumped"
+
+export interface PoseInfo {
+  /** card title: matches the pose shown */
+  label: string
+  /** debrief row name */
+  short: string
+  group: PoseGroup
+}
+
+/** What each pose looks like, in words. Group: lying (on the floor), sitting (upright), slumped (leaning on a wall). */
+export const POSE_INFO: { [k: string]: PoseInfo } = {
+  sitting_arm_cut: { label: "Sitting, arm cut", short: "Arm cut", group: "sitting" },
+  sitting_holding_ankle: { label: "Sitting, holding ankle", short: "Hurt ankle", group: "sitting" },
+  lying_back: { label: "Lying on back", short: "On back", group: "lying" },
+  lying_side: { label: "Lying on side", short: "On side", group: "lying" },
+  slumped_against_wall: { label: "Slumped against wall", short: "Slumped", group: "slumped" },
+  lying_groaning: { label: "Lying, groaning", short: "Groaning", group: "lying" },
+  sitting_dazed: { label: "Sitting, dazed", short: "Dazed", group: "sitting" },
+  lying_face_up_still: { label: "Lying face up, still", short: "Face up", group: "lying" },
+  sitting_knees_up: { label: "Sitting, knees up", short: "Knees up", group: "sitting" },
+  sitting_leaning_back: { label: "Sitting, leaning back", short: "Leaning back", group: "sitting" },
+  lying_back_knee_up: { label: "Lying on back, knee up", short: "Knee up", group: "lying" },
+  lying_back_arm_up: { label: "Lying on back, arm up", short: "Arm up", group: "lying" },
+}
+
+/**
+ * The believable poses each case can take (the first is the default, used by the demo seed). Rules:
+ * walkers are always seated; F and X only lie still (never upright, never groaning); A-E any lying / sitting / slumped.
+ * The same pose is offered to cases with different tags, so appearance never predicts the tag.
+ */
+export const POSE_CHOICES: { [id: string]: PoseKind[] } = {
+  W1: ["sitting_arm_cut", "sitting_knees_up", "sitting_dazed"],
+  W2: ["sitting_holding_ankle", "sitting_knees_up", "sitting_leaning_back"],
+  A: ["lying_back", "lying_back_knee_up", "lying_side"],
+  B: ["lying_side", "lying_back", "lying_back_arm_up"],
+  C: ["slumped_against_wall", "sitting_dazed", "sitting_leaning_back"],
+  D: ["lying_groaning", "lying_back_arm_up", "lying_side"],
+  E: ["sitting_dazed", "slumped_against_wall", "sitting_knees_up"],
+  F: ["lying_face_up_still", "lying_back", "lying_side"],
+  X: ["lying_face_up_still", "lying_back", "lying_side"],
+}
+
+export function poseLabelOf(kind: string): string {
+  return POSE_INFO[kind] ? POSE_INFO[kind].label : kind
+}
+export function poseShortOf(kind: string): string {
+  return POSE_INFO[kind] ? POSE_INFO[kind].short : kind
+}
 
 export interface CasualtyDef {
   id: CasualtyId

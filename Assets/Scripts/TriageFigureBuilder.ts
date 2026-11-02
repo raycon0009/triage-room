@@ -311,7 +311,7 @@ export class TriageFigureBuilder {
   // ------------------------------------------------------------------ whole casualty
 
   /** Builds Casualty_<id> under parent at floor-relative (x, 0, z) rotated yawDeg. */
-  buildCasualty(parent: SceneObject, id: CasualtyId, x: number, z: number, yawDeg: number, needsBackrest: boolean, dotColour: number[], look: Look): SceneObject {
+  buildCasualty(parent: SceneObject, id: CasualtyId, x: number, z: number, yawDeg: number, needsBackrest: boolean, dotColour: number[], look: Look, pose: string = ""): SceneObject {
     const root = global.scene.createSceneObject("Casualty_" + id)
     root.setParent(parent)
     const t = root.getTransform()
@@ -321,7 +321,7 @@ export class TriageFigureBuilder {
     body.setParent(root)
     const def = CASUALTY_TABLE[id]
     this.looks[id] = look
-    this.poses[id] = poseForKind(def.pose)
+    this.poses[id] = poseForKind(pose || def.pose)
     delete this.rigs[id]
     this.rebuildStatic(root, id)
     if (needsBackrest) {

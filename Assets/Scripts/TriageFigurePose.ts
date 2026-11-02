@@ -158,6 +158,10 @@ export type PoseName =
   | "lying_groaning"
   | "sitting_dazed"
   | "lying_face_up_still"
+  | "sitting_knees_up"
+  | "sitting_leaning_back"
+  | "lying_back_knee_up"
+  | "lying_back_arm_up"
 
 export const POSES: { [k: string]: Pose } = {
   // sitting on the floor, legs forward, right forearm bandaged (arm held across the lap)
@@ -276,6 +280,66 @@ export const POSES: { [k: string]: Pose } = {
     shR: [0, 8],
     hipL: [0, 4],
     hipR: [0, 4],
+    ankL: 8,
+    ankR: 8,
+  }),
+  // sitting, both knees up, arms resting across the knees
+  sitting_knees_up: makePose({
+    root: [0, 11, 0],
+    spine: 25,
+    neck: 8,
+    head: [8, 0, 0],
+    shL: [46, 6],
+    elL: 75,
+    shR: [46, 6],
+    elR: 75,
+    hipL: [150, 8],
+    hipR: [150, 8],
+    knL: 150,
+    knR: 150,
+    ankL: 0,
+    ankR: 0,
+  }),
+  // sitting, legs out, leaning back on both hands
+  sitting_leaning_back: makePose({
+    root: [0, 9, 0],
+    spine: -12,
+    neck: 12,
+    head: [6, 0, 0],
+    shL: [8, 16],
+    elL: 4,
+    shR: [8, 16],
+    elR: 4,
+    hipL: [88, 10],
+    hipR: [88, 10],
+    ankL: 12,
+    ankR: 12,
+  }),
+  // lying on the back, one knee drawn up, arms a little apart
+  lying_back_knee_up: makePose({
+    root: [0, 12.3, 0],
+    orient: [-90, 0, 0],
+    head: [0, -12, 0],
+    shL: [0, 18],
+    shR: [0, 20],
+    elR: 20,
+    hipL: [0, 8],
+    hipR: [62, 6],
+    knR: 125,
+    ankL: 8,
+    ankR: 20,
+  }),
+  // lying on the back, right arm raised above the head, left hand on the chest
+  lying_back_arm_up: makePose({
+    root: [0, 12.3, 0],
+    orient: [-90, 0, 0],
+    head: [0, 16, 0],
+    shL: [40, 22],
+    elL: 90,
+    shR: [170, 25],
+    elR: 12,
+    hipL: [0, 8],
+    hipR: [0, 12],
     ankL: 8,
     ankR: 8,
   }),

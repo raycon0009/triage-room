@@ -12,7 +12,7 @@
 import Event, { PublicApi } from "SpectaclesInteractionKit.lspkg/Utils/Event"
 import { TriageStartUI } from "./TriageStartUI"
 import { TriageScenarioUI } from "./TriageScenarioUI"
-import { CASUALTY_TABLE, CasualtyId } from "./TriageData"
+import { CASUALTY_TABLE, CasualtyId, poseLabelOf, poseShortOf } from "./TriageData"
 import { DEMO_SEED, ForceBlack, RunLayout, ROOM, generateRun, layoutSignature, resolveSeed, validateRun } from "./TriageLayout"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
 import { lookFor } from "./TriageFigurePose"
@@ -25,6 +25,8 @@ export interface CasualtyState {
   walks: boolean
   correctTag: string
   pose: string
+  poseLabel: string
+  yawDeg: number
   /** world-space cm */
   position: { x: number; y: number; z: number }
   /** floor-relative cm */
@@ -232,6 +234,15 @@ export class TriageMain extends BaseScriptComponent {
     return this.builder
   }
 
+  /** The pose this casualty takes in the current run (kind, card label, debrief short name). */
+  getCasualtyPose(id: string): { kind: string; label: string; short: string } {
+    for (const c of this.run.casualties) {
+      if (c.id === id) return { kind: c.pose, label: poseLabelOf(c.pose), short: poseShortOf(c.pose) }
+    }
+    const def = CASUALTY_TABLE[id]
+    return { kind: def.pose, label: def.poseLabel, short: poseShortOf(def.pose) }
+  }
+
   getCasualtyObject(id: string): SceneObject | null {
     const o = this.casualtyObjects[id]
     return o && !isNull(o) ? o : null
@@ -254,7 +265,9 @@ export class TriageMain extends BaseScriptComponent {
         behind: c.behind,
         walks: def.walks,
         correctTag: def.correctTag,
-        pose: def.pose,
+        pose: c.pose,
+        poseLabel: poseLabelOf(c.pose),
+        yawDeg: c.yawDeg,
         position: { x: Math.round(wp.x * 10) / 10, y: Math.round(wp.y * 10) / 10, z: Math.round(wp.z * 10) / 10 },
         floorPosition: { x: c.x, z: c.z },
       }
@@ -283,7 +296,7 @@ export class TriageMain extends BaseScriptComponent {
     // each casualty gets its own clothing colour, skin tone and hair, chosen by the run's seed
     this.run.casualties.forEach((c, i) => {
       const look = lookFor(this.run.seed, i, c.id === "W1")
-      this.casualtyObjects[c.id] = this.builder.buildCasualty(this.casualtiesRoot, c.id, c.x, c.z, c.yawDeg, c.needsBackrest, dot, look)
+      this.casualtyObjects[c.id] = this.builder.buildCasualty(this.casualtiesRoot, c.id, c.x, c.z, c.yawDeg, c.needsBackrest, dot, look, c.pose)
     })
   }
 

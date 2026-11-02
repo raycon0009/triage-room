@@ -47,6 +47,9 @@ export interface ScoreInput {
   extraChecks: number
   calledOut: boolean
   calledOutAtSeconds: number | null
+  /** the pose shown in this run: card label and debrief short name (default: the case's own pose) */
+  poseLabel?: string
+  poseShort?: string
 }
 
 export interface DebriefEntry {
@@ -122,8 +125,8 @@ export function buildEntry(input: ScoreInput): DebriefEntry {
   const timePart = called ? "call-out " + formatClock(input.calledOutAtSeconds as number) : Math.round(input.openSeconds) + " s"
   return {
     id: def.id,
-    poseLabel: def.poseLabel,
-    shortName: SHORT_NAME[def.id] || def.poseLabel,
+    poseLabel: input.poseLabel || def.poseLabel,
+    shortName: input.poseShort || SHORT_NAME[def.id] || def.poseLabel,
     row: 0,
     status: status,
     notReached: status === "missed",

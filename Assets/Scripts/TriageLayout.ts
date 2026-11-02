@@ -10,7 +10,7 @@
  *  - same seed + same forceBlack => identical layout
  * Must not: touch the scene.
  */
-import { CasualtyId, CASUALTY_TABLE } from "./TriageData"
+import { CasualtyId, CASUALTY_TABLE, PoseKind, POSE_CHOICES, POSE_INFO } from "./TriageData"
 
 export type ForceBlack = "auto" | "on" | "off"
 export type SlotName = "behind" | "wall" | "frontLeft" | "frontRight"
@@ -23,6 +23,8 @@ export interface PlacedCasualty {
   z: number
   /** rotation about Y in degrees (0 = lying head points away from the start position / sitting faces the user) */
   yawDeg: number
+  /** the pose this case takes in this run (one of POSE_CHOICES[id]) */
+  pose: PoseKind
   behind: boolean
   /** slumped casualty away from the wall needs a small backrest */
   needsBackrest: boolean
@@ -74,6 +76,10 @@ export function mulberry32(seed: number): () => number {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
+}
+
+function CASUALTY_DEFAULT_POSE(id: CasualtyId): PoseKind {
+  return CASUALTY_TABLE[id].pose
 }
 
 function pick<T>(rng: () => number, arr: T[]): T {
@@ -151,10 +157,38 @@ export function generateRun(seed: number, forceBlack: ForceBlack): RunLayout {
       x: Math.round(x * 10) / 10,
       z: Math.round(z * 10) / 10,
       yawDeg: Math.round(yaw * 10) / 10,
+      pose: CASUALTY_DEFAULT_POSE(a.id),
       behind: a.slot === "behind",
-      needsBackrest: a.id === "C" && a.slot !== "wall",
+      needsBackrest: false,
     }
   })
+
+  // Pose variation (a separate random stream, so the layout above is the same as before for every seed).
+  // The demo seed keeps its documented poses and positions.
+  if (seed !== DEMO_SEED) {
+    const prng = mulberry32(Math.imul(seed | 0, 2246822519) ^ 0x2545f491)
+    for (const c of casualties) {
+      let choices = POSE_CHOICES[c.id]
+      if (c.slot === "wall") {
+        // against the wall: only a seated or slumped pose, back to the wall
+        choices = choices.filter((k) => POSE_INFO[k].group !== "lying")
+      }
+      c.pose = pick(prng, choices)
+      if (c.slot === "wall") {
+        c.yawDeg = Math.round(range(prng, -8, 8) * 10) / 10
+      } else {
+        // a random turn of the whole body and a small shift, kept inside the slot and the play area
+        c.yawDeg = Math.round(range(prng, 0, 360) * 10) / 10
+        const r = ROOM.slots[c.slot]
+        c.x = Math.round(Math.max(r.xMin, Math.min(r.xMax, c.x + range(prng, -10, 10))) * 10) / 10
+        c.z = Math.round(Math.max(r.zMin, Math.min(r.zMax, c.z + range(prng, -10, 10))) * 10) / 10
+      }
+    }
+  }
+  for (const c of casualties) {
+    // a slumped person away from the wall leans on a small backrest
+    c.needsBackrest = POSE_INFO[c.pose].group === "slumped" && c.slot !== "wall"
+  }
 
   return { seed, forceBlack, blackIncluded: black, walkerId, behindId, casualties }
 }
@@ -184,6 +218,13 @@ export function validateRun(run: RunLayout): string[] {
     }
   }
   for (const c of run.casualties) {
+    const d = CASUALTY_TABLE[c.id]
+    if (POSE_CHOICES[c.id].indexOf(c.pose) < 0) errs.push(c.id + " has a pose it may not take: " + c.pose)
+    const group = POSE_INFO[c.pose] ? POSE_INFO[c.pose].group : "?"
+    if (d.walks && group !== "sitting") errs.push(c.id + " walker must be seated")
+    if ((c.id === "F" || c.id === "X") && group !== "lying") errs.push(c.id + " must lie still")
+    if (c.slot === "wall" && group === "lying") errs.push(c.id + " at the wall must be seated or slumped")
+    if (Math.abs(c.x) > ROOM.halfWidth || c.z < ROOM.frontWallZ || c.z > ROOM.backZ) errs.push(c.id + " outside the play area")
     if (!c.behind && c.z >= 0) errs.push(c.id + " in front slot but z>=0")
   }
   return errs

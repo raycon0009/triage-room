@@ -17,6 +17,7 @@ import {TriageDebriefAllTaggedScenario} from "./TriageDebriefAllTaggedScenario"
 import {TriageDebriefTimeUpScenario} from "./TriageDebriefTimeUpScenario"
 import {TriageRestartScenario} from "./TriageRestartScenario"
 import {TriageStartScreenScenario} from "./TriageStartScreenScenario"
+import {TriagePoseVariationScenario} from "./TriagePoseVariationScenario"
 
 @component
 export class LeafIndex extends BaseScriptComponent {
@@ -39,5 +40,6 @@ export class LeafIndex extends BaseScriptComponent {
     {id: "triage-debrief-time-up-not-reached", typename: TriageDebriefTimeUpScenario.getTypeName()},
     {id: "triage-restart-and-seeds", typename: TriageRestartScenario.getTypeName()},
     {id: "triage-start-screen", typename: TriageStartScreenScenario.getTypeName()},
+    {id: "triage-pose-variation", typename: TriagePoseVariationScenario.getTypeName()},
   ]
 }

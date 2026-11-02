@@ -666,7 +666,7 @@ export class TriageCheckCards extends BaseScriptComponent {
     const def = CASUALTY_TABLE[id]
     const f = this.findings(id)
     const rec = this.records[id]
-    this.titleText.text = def.poseLabel
+    this.titleText.text = this.main.getCasualtyPose(id).label
     this.statusBase = f.walks ? "Can walk: Yes" : "Can walk: No"
     this.showStatus()
 

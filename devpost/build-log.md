@@ -326,3 +326,24 @@ Temporary logging, the demo script and its scene object removed. The scene was s
 1. Start layout from the start position (pitch down 28 degrees), run seed 77 with the demo layout: the figure at the wall with a red band, and the front-left and front-right figures partly cropped by the narrow view.
 2. Close view of the tagged Expectant casualty X lying face up: dark-grey band with a white outline fitted round the rounded torso, light outline round the whole body, soft floor oval.
 Taken with a temporary demo script that tagged X and C (script and scene object removed before the commit; `Scene.scene` has no trace). `CaptureRuntimeViewTool` and `QueryRuntimeSceneTool` were not used.
+
+## Pose variation: appearance no longer predicts the tag (3 Nov 2026, overnight run)
+
+**Status: gate passed.** `start-engine.test.mjs` 12/12, `scoring.test.mjs` 23/23, `figures.test.mjs` all pass (it loops over every pose, so the 4 new ones are covered); LEAF 18/18 (17 old + new `triage-pose-variation`), each run on its own on the final code. Step 2 was already committed (9967cf7) before the overnight run, so it was not redone.
+
+### What changed
+- `TriageData.ts`: `POSE_INFO` (label, short name, group lying / sitting / slumped per pose) and `POSE_CHOICES` (2-3 poses per case, first = default). Walkers: seated only. F and X: lying only (no groaning pose). A-E: lying, side-lying, seated or slumped. The same pose is offered to cases with different tags.
+- `TriageFigurePose.ts`: 4 new poses from joint angles: `sitting_knees_up`, `sitting_leaning_back`, `lying_back_knee_up`, `lying_back_arm_up`.
+- `TriageLayout.ts`: each placed casualty has a `pose`, picked from a separate random stream (so layouts of every seed are unchanged), plus a random body turn (0-360, wall casualty +-8) and a small position shift (+-10 cm, kept inside the slot). The wall casualty only gets a seated or slumped pose. The demo seed (77) keeps default poses, yaw and positions. `validateRun` also checks pose choices, walker seated, F/X lying, wall pose, play area. A slumped casualty away from the wall gets the backrest (was C only).
+- Card title, run state (`poseLabel`) and debrief row names now come from the pose shown (`TriageMain.getCasualtyPose`).
+
+### Test
+- New LEAF `triage-pose-variation`: all offered poses on the floor at real size; 1200 layouts (400 seeds x 3 Black settings) valid and repeatable; walkers always seated; F/X never upright; every case shows all its poses; shared poses span different tags; demo seed poses and positions unchanged; for 6 built seeds the figure is in the run's pose, real size, on the floor, and the card title equals the label.
+- Failed once: my first position shift (+-10 cm beyond the slot) made W2/X 150 cm apart (rule: more than 150). Fixed by keeping the shift inside the slot. No test failed twice.
+
+### Not proven / limits
+- New poses were tuned by numbers (feet and hands on the floor, bounds) and one preview capture, not judged by eye. Look at them.
+- Pose names are shared between cases, so a pose label never names an injury except W1's bandage / "arm cut" and W2's "holding ankle", which only those walkers can take.
+
+### Capture
+`devpost/captures/step3-seed21-layout.jpg`: non-demo seed 21, from the start position, pitched down 28 degrees (seated figure, two lying figures cropped by the narrow view). Taken with a temporary LEAF scenario (deleted).
