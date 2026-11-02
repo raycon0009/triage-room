@@ -53,7 +53,7 @@ const SUMMARY_SIZE = 150
 const NOT_REACHED_SIZE = 172
 const LINE = 1.2 // line pitch = em * LINE
 const PAD_Y = 2.4
-const ROW_GAP = 1.2
+const ROW_GAP = 1.0
 const GUTTER_Z = 0.6
 /** How long an old debrief stays (hidden) before it is destroyed, so the interactor that pressed Restart lets go first */
 const RETIRE_SECONDS = 0.5
@@ -619,8 +619,14 @@ export class TriageDebrief extends BaseScriptComponent {
       cursor += p2
       // ---- line 3: the one short explanation, where it applies
       if (e.explanation) {
-        const p3 = pitch(ROW_SIZE)
-        add("explanation", e.explanation, ROW_SIZE, WHITE, LEFT, -(cursor + p3 / 2), "left", wBox)
+        // about 40 characters fit on a line at this size; a longer sentence wraps (Expectant's) and the row grows to match
+        const lines = Math.max(1, Math.ceil(e.explanation.length / 40))
+        const p3 = pitch(ROW_SIZE) * lines
+        const et = add("explanation", e.explanation, ROW_SIZE, WHITE, LEFT, -(cursor + p3 / 2), "left", wBox)
+        if (lines > 1) {
+          et.horizontalOverflow = HorizontalOverflow.Wrap
+          et.layoutRect = Rect.create(0, wBox, -p3 / 2, p3 / 2)
+        }
         cursor += p3
       }
       cursor += ROW_GAP

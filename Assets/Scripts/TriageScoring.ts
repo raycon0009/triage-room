@@ -95,13 +95,13 @@ export function ruleLine(def: CasualtyDef): string {
     case 0:
       return "Can walk → Green"
     case 2:
-      return def.correctTag === "Black" ? "No breathing after airway → Expectant" : "Breathes after airway → Red"
+      return def.correctTag === "Black" ? "Not breathing even with airway open → Expectant: START saves time for those who can still be helped." : "Breathes only after airway opened → Red"
     case 3:
       return "Rate " + def.respRate + " is over 30 → Red"
     case 4:
       return def.radialPulse === "absent" ? "Radial pulse absent → Red" : "Refill " + def.refillSeconds + " s is over 2 → Red"
     case 5:
-      return def.followsCommands ? "Follows commands → Yellow" : "Cannot follow commands → Red"
+      return def.followsCommands ? "Rate under 30, pulse OK, obeys → Yellow" : "Rate under 30, pulse OK, no obey → Red"
     default:
       return ""
   }

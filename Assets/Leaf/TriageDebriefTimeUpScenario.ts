@@ -73,7 +73,7 @@ export class TriageDebriefTimeUpScenario extends Scenario {
     const x = entries[3]
     expect(x.status).toBe("correct")
     expect(x.myWord).toBe("EXPECTANT")
-    expect(debrief.getRowTexts("X").explanation).toBe("No breathing after airway → Expectant")
+    expect(debrief.getRowTexts("X").explanation).toBe("Not breathing even with airway open → Expectant: START saves time for those who can still be helped.")
     expect(debrief.getRowTexts("X").notReached === undefined).toBe(true)
 
     for (let i = 0; i < 3; i++) {

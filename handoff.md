@@ -1,3 +1,5 @@
+Prep notes for the planning interview. The design brief in devpost/ is what was built.
+
 # Triage Room — handoff notes
 
 Prep notes for the plan-lens interview and the build. These are NOT the design brief.
