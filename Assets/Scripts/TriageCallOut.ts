@@ -17,7 +17,8 @@ import { TriageMain } from "./TriageMain"
 import { TriageCheckCards } from "./TriageCheckCards"
 import { TriageRunClock } from "./TriageRunClock"
 import { CasualtyId } from "./TriageData"
-import { Part, STANDING_HIP_Y, STANDING_SHOULDER_Y, standingParts, startingParts } from "./TriageFigureBuilder"
+import { Pose, STANDING_POSE, lerpPose, walkPose } from "./TriageFigurePose"
+import { TriageFigureBuilder } from "./TriageFigureBuilder"
 
 export type WalkPhase = "idle" | "standing" | "walking" | "arrived"
 
@@ -86,10 +87,8 @@ export class TriageCallOut extends BaseScriptComponent {
   private phaseTime = 0
   private walkerId: CasualtyId | null = null
   private walker: SceneObject | null = null
-  private body: SceneObject | null = null
-  private start: Part[] = []
-  private target: Part[] = []
-  private partObjs: { [name: string]: SceneObject } = {}
+  private figure: TriageFigureBuilder | null = null
+  private startPose: Pose = STANDING_POSE
   private dest = new vec3(0, 0, 0)
   private gait = 0
   private baseY = 0
@@ -146,14 +145,10 @@ export class TriageCallOut extends BaseScriptComponent {
     this.walker = obj
     this.cards.markCalledOut(id, this.clock.getElapsed())
 
-    this.body = obj.getChild(0)
-    this.start = startingParts(id)
-    this.target = standingParts(id)
-    this.partObjs = {}
-    for (let i = 0; i < this.body.getChildrenCount(); i++) {
-      const c = this.body.getChild(i)
-      this.partObjs[c.name] = c
-    }
+    // split the resting figure into moving body parts (merged again on arrival)
+    this.figure = this.main.getFigureBuilder()
+    this.startPose = this.figure.getPose(id)
+    this.figure.startRig(obj, id)
     // where to stop: inside the circle, on the side the walker comes from, so the MINOR word stays readable
     const z = this.zoneCentre()
     const p = obj.getTransform().getWorldPosition()
@@ -177,8 +172,7 @@ export class TriageCallOut extends BaseScriptComponent {
     this.phase = "idle"
     this.walker = null
     this.walkerId = null
-    this.body = null
-    this.partObjs = {}
+    this.figure = null
     if (this.panel) this.panel.enabled = false
   }
 
@@ -205,7 +199,7 @@ export class TriageCallOut extends BaseScriptComponent {
 
   private tick(): void {
     if (this.phase === "idle" || this.phase === "arrived") return
-    if (!this.walker || isNull(this.walker) || !this.body || isNull(this.body)) {
+    if (!this.walker || isNull(this.walker) || !this.figure) {
       this.phase = "idle"
       return
     }
@@ -216,7 +210,6 @@ export class TriageCallOut extends BaseScriptComponent {
       this.blendToStanding(k * k * (3 - 2 * k))
       this.faceTowards(this.dest, dt, 6)
       if (k >= 1) {
-        this.finishStanding()
         this.setPhase("walking")
       }
     } else if (this.phase === "walking") {
@@ -229,13 +222,12 @@ export class TriageCallOut extends BaseScriptComponent {
       this.faceTowards(this.dest, dt, 8)
       if (dist <= step) {
         t.setWorldPosition(new vec3(this.dest.x, this.baseY, this.dest.z))
-        this.swing(0, 0)
         this.arrive()
         return
       }
       this.gait += dt * 7
       t.setWorldPosition(new vec3(p.x + (dx / dist) * step, this.baseY + Math.abs(Math.sin(this.gait)) * 1.2, p.z + (dz / dist) * step))
-      this.swing(Math.sin(this.gait) * 24, Math.sin(this.gait) * 16)
+      this.figure.applyPose(this.walker, this.walkerId as string, walkPose(Math.sin(this.gait)))
     }
   }
 
@@ -246,6 +238,8 @@ export class TriageCallOut extends BaseScriptComponent {
     const p = t.getWorldPosition()
     t.setWorldRotation(quat.fromEulerVec(new vec3(0, Math.atan2(root.x - p.x, root.z - p.z), 0)))
     this.setPhase("arrived")
+    // back to one merged mesh in a relaxed standing pose
+    if (this.figure && this.walkerId) this.figure.finishRig(this.walker!, this.walkerId, STANDING_POSE)
     if (this.walkerId) this.cards.showCalledOutTag(this.walkerId)
     print("TRIAGE_WALKER_ARRIVED " + this.walkerId + " distToZoneCentre=" + Math.round(this.getArrivalDistanceCm()))
   }
@@ -260,60 +254,10 @@ export class TriageCallOut extends BaseScriptComponent {
     t.setWorldRotation(quat.slerp(t.getWorldRotation(), goal, Math.min(1, dt * rate)))
   }
 
-  /** Blend every part from its sitting pose to its standing pose (k from 0 to 1). */
+  /** Blend the whole body from the sitting pose to the standing pose, joint by joint (k from 0 to 1). */
   private blendToStanding(k: number): void {
-    const d = Math.PI / 180
-    for (const s of this.start) {
-      const o = this.partObjs[s.name]
-      if (!o || isNull(o)) continue
-      const g = this.target.filter((p) => p.name === s.name)[0]
-      const unit = s.kind === "box" ? this.main.boxUnitCm : this.main.sphereUnitCm
-      const t = o.getTransform()
-      if (!g) {
-        // parts the standing figure does not have shrink away
-        const sc = 1 - k
-        t.setLocalScale(new vec3((s.size[0] / unit) * sc, (s.size[1] / unit) * sc, (s.size[2] / unit) * sc))
-        continue
-      }
-      const pos = [0, 1, 2].map((i) => s.pos[i] + (g.pos[i] - s.pos[i]) * k)
-      const size = [0, 1, 2].map((i) => s.size[i] + (g.size[i] - s.size[i]) * k)
-      const r0 = s.rot || [0, 0, 0]
-      const r1 = g.rot || [0, 0, 0]
-      const rot = [0, 1, 2].map((i) => r0[i] + (r1[i] - r0[i]) * k)
-      t.setLocalPosition(new vec3(pos[0], pos[1], pos[2]))
-      t.setLocalScale(new vec3(size[0] / unit, size[1] / unit, size[2] / unit))
-      t.setLocalRotation(quat.fromEulerVec(new vec3(rot[0] * d, rot[1] * d, rot[2] * d)))
-    }
-  }
-
-  private finishStanding(): void {
-    this.blendToStanding(1)
-    // parts that have no standing counterpart are gone
-    for (const s of this.start) {
-      if (this.target.filter((p) => p.name === s.name).length === 0) {
-        const o = this.partObjs[s.name]
-        if (o && !isNull(o)) o.enabled = false
-      }
-    }
-  }
-
-  /** Swing the legs and arms about the hip / shoulder (degrees). */
-  private swing(legDeg: number, armDeg: number): void {
-    const d = Math.PI / 180
-    const limbs: { name: string; pivotY: number; half: number; sign: number; deg: number }[] = [
-      { name: "LegL", pivotY: STANDING_HIP_Y, half: 40, sign: 1, deg: legDeg },
-      { name: "LegR", pivotY: STANDING_HIP_Y, half: 40, sign: -1, deg: legDeg },
-      { name: "ArmL", pivotY: STANDING_SHOULDER_Y, half: 22, sign: -1, deg: armDeg },
-      { name: "ArmR", pivotY: STANDING_SHOULDER_Y, half: 22, sign: 1, deg: armDeg },
-    ]
-    for (const l of limbs) {
-      const o = this.partObjs[l.name]
-      const g = this.target.filter((p) => p.name === l.name)[0]
-      if (!o || isNull(o) || !g) continue
-      const a = l.sign * l.deg * d
-      o.getTransform().setLocalPosition(new vec3(g.pos[0], l.pivotY - l.half * Math.cos(a), -l.half * Math.sin(a)))
-      o.getTransform().setLocalRotation(quat.angleAxis(a, new vec3(1, 0, 0)))
-    }
+    if (!this.figure || !this.walker || !this.walkerId) return
+    this.figure.applyPose(this.walker, this.walkerId, this.figure.groundedPose(this.walkerId, lerpPose(this.startPose, STANDING_POSE, k)))
   }
 
   // ------------------------------------------------------------------ button

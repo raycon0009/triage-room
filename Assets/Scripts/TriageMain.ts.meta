@@ -33,6 +33,7 @@
     casualtiesRoot: false
     figureMaterial: false
     forceBlack: false
+    litMaterial: false
     roomShellRoot: false
     scenarioFadeSeconds: false
     scenarioHoldSeconds: false
@@ -59,6 +60,7 @@
       boxMesh: !<reference.RenderMesh> 00000000-0000-0000-0000-000000000000
       sphereMesh: !<reference.RenderMesh> 00000000-0000-0000-0000-000000000000
       figureMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      litMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
       seed: !<float> 0.000000
       forceBlack: auto
       useDemoSeed: false
@@ -82,6 +84,7 @@
     - '// @input Asset.RenderMesh boxMesh {"hint":"Box RenderMesh primitive"}'
     - '// @input Asset.RenderMesh sphereMesh {"hint":"Sphere RenderMesh primitive"}'
     - '// @input Asset.Material figureMaterial {"hint":"Unlit material used (cloned and tinted) for figures and room shell"}'
+    - '// @input Asset.Material litMaterial {"hint":"Lit material for the casualty figures: Uber PBR with Vertex Color = Base Color (soft, matte)"}'
     - '// @ui {"widget":"group_end"}'
     - '// @ui {"widget":"separator"}'
     - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">Settings</span>"}'

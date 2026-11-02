@@ -199,7 +199,9 @@ export class TriageCardOpenScenario extends Scenario {
     const legPos = (findByName(cas, "LegL") as SceneObject).getTransform().getWorldPosition()
     const axis = new vec3(legPos.x - hw.x, 0, legPos.z - hw.z).normalize() // head -> feet, along the floor
     const perp = new vec3(-axis.z, 0, axis.x)
-    const foot = legPos.add(axis.uniformScale(30))
+    // 20 cm beyond the lower-leg anchor (was 30 with the old box-leg anchor): the rounded lower leg's anchor sits slightly
+    // further sideways, so a 30 cm offset put it just outside the card's half-width
+    const foot = legPos.add(axis.uniformScale(20))
     const eyeP = new vec3(foot.x + perp.x * 90, 0, foot.z + perp.z * 90)
     const lookAtFeet = foot.sub(eyeP)
     cards.closeCard()

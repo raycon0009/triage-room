@@ -291,3 +291,38 @@ One capture of the debrief after a run with the casualty behind (D, Yellow) neve
 
 ### Cleanup
 Temporary logging, the demo script and its scene object removed. The scene was saved from Lens Studio (`timesUpSeconds` 2; the LEAF plugin re-created its own "LEAF Plugin Bridge" object with new IDs on the save).
+
+## Nicer casualty figures: rounded, outlined, varied (3 Nov 2026)
+
+**Status: gate passed.** `node devpost/tests/start-engine.test.mjs` 12/12, `scoring.test.mjs` 23/23, new `figures.test.mjs` 50/50; LEAF 17/17, each scenario run on its own on the final code (the walker scenarios were re-run after the last change).
+
+### What changed
+- **New `Assets/Scripts/TriageFigurePose.ts`** (pure, no Lens API, tested in Node): the body as **named parts driven by joint angles**: Pelvis, Torso, Neck, Head, Hair, UpperArm/ForeArm/Hand L+R, Thigh/Shin/Foot L+R (+ Bandage). A `Pose` is joint angles in degrees (body orient, root, spine, neck, head, shoulders, elbows, hips, knees, ankles); `partsFromPose` does the forward kinematics. **To add a pose:** add one entry to `POSES` (the file header explains each angle). Rounded geometry: capsules (heads are spheres, torso and pelvis are rounded slabs) and elliptic rings (bands).
+- **`TriageFigureBuilder.ts` rewritten** around that model with `MeshBuilder` (no models, nothing downloaded, no packages installed): each resting figure is **one merged lit mesh ("Skin", vertex colours) + one light outline mesh ("Rim", inflated hull, cull-front) + one soft floor oval ("FloorRing")** = 3 draw calls (about 13 for the four plus dots, bands). Empty anchors `Torso`, `Head`, `LegL`, `LegR` keep the box-size-in-scale convention the check card and tests use.
+- **Walker:** it is split into one object per body part only while it stands up and walks (so legs and arms move), then merged again on arrival. `TriageCallOut.ts` now blends joint angles (`lerpPose`, `walkPose`) instead of boxes; the stand-up is lifted so the feet never dip below the floor (`grounded`).
+- **Tag bands** are now elliptic rings fitted round the new torso (3.5 cm clearance all round, 14 cm wide, turned with the torso); EXPECTANT keeps the dark-grey band with the white outline. Names `Band` and `Outline` unchanged.
+- **Variety by seed:** each of the four casualties gets a different light clothing colour (9 in the palette), trousers, skin tone (5, darkest luminance above 0.55) and hair, chosen by the run seed (same seed, same looks). `lookFor(seed, index, bandage)`.
+- **No breathing or movement** of any kind: nothing animates a resting figure.
+- **No injuries or gore:** the only mark is the white bandage on W1's forearm (the pink patch was dropped).
+- **Lighting (scene):** new material `TriageFigureLit` (Uber PBR, Vertex Color = Base Color, matte, no textures), wired to `TriageMain.litMaterial`. Key (directional) light 1.0 to 0.85, ambient light 1.0 to 1.25, no shadows. Shading is gentle: every vertex colour is light, and the darkest side is still a clearly visible light tone.
+- Small hooks: `TriageMain.getFigureBuilder()`; the cards now use that builder for bands.
+
+### Test changes (the only ones)
+- `TriageCardOpenScenario.ts`: the "card may overlap the legs" part looked 30 cm past the `LegL` anchor; the rounded lower leg sits slightly further sideways than the old box, which put the test point 0.2 degrees outside the card. Changed to 20 cm. Nothing else in any scenario was changed. The size bounds (70-220 cm, lowest -3..8, top 130) needed no change.
+- `figures.test.mjs` (new): parts present, bounds and size per pose, nothing dark, looks distinct within a run and repeatable by seed, all triangles wound outward, stand-up and walk stay above the floor.
+
+### Failed or odd on the way
+- `triage-callout-walker-only` failed once: the card script had its own builder with no pose data, so the band crashed. It now uses the main builder. Passed after.
+- `triage-card-opens-proximity-and-open` failed twice with two different causes: first the test looked for an old part named `LegL` (added as an anchor), then the 0.2 degree bound above. Passed on the third run. No failure repeated.
+- Mid stand-up the legs dipped 15 cm below the floor: found by `figures.test.mjs`, fixed with `grounded`.
+
+### Not proven / limits
+- Additive-display look is **feel unproven**: the preview shows the figures on a dark floor, not through glasses. The strong ambient light plus the light outline are meant to keep every side visible.
+- Hands are simple capsules (no fingers). Hair is a cap, hidden when lying face up.
+- The preview's narrow view crops the side figures when looking forward from the start position.
+- Poses were tuned by numbers (hand on ankle, hand to head) and one look at the preview, not judged on a headset.
+
+### Captures (CapturePanelScreenshotTool only)
+1. Start layout from the start position (pitch down 28 degrees), run seed 77 with the demo layout: the figure at the wall with a red band, and the front-left and front-right figures partly cropped by the narrow view.
+2. Close view of the tagged Expectant casualty X lying face up: dark-grey band with a white outline fitted round the rounded torso, light outline round the whole body, soft floor oval.
+Taken with a temporary demo script that tagged X and C (script and scene object removed before the commit; `Scene.scene` has no trace). `CaptureRuntimeViewTool` and `QueryRuntimeSceneTool` were not used.

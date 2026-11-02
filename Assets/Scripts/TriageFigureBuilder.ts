@@ -1,168 +1,48 @@
 /**
- * TriageFigureBuilder.ts - builds stylised, light-coloured, non-gory casualty figures from primitives.
- * Owns: per-pose part lists and runtime creation of the figure SceneObject (runtime-only children).
- * Needs: box + sphere RenderMeshes, an Unlit material, and the measured size (cm) of one mesh unit.
- * Must not: contain text/UI or check logic. Nothing here is black (additive display).
+ * TriageFigureBuilder.ts - builds the stylised, rounded, light-coloured, non-gory casualty figures at runtime.
+ * Owns: turning the pure body model (TriageFigurePose.ts: named parts driven by joint angles) into meshes built with
+ *       MeshBuilder; the lit "Skin" mesh and the light "Rim" outline per figure; the walker's temporary rig; tag bands;
+ *       plus the small box / sphere primitives used by the room shell, markers and the debrief map.
+ * Needs: box + sphere RenderMeshes and an Unlit material (primitives, outline, bands), optionally a lit vertex-colour
+ *        material (figures), and the measured size (cm) of one mesh unit.
+ * Must not: contain text/UI or check logic. Nothing here is black (additive display). No breathing or idle motion.
  * Local figure frame (floor y=0): lying figures have the head at -Z; sitting figures face +Z.
+ *
+ * Draw calls: a resting figure is Skin + Rim + FloorRing = 3. Only a walker that has been called out is split into
+ * one object per body part (so the legs and arms can move) until it arrives, then it is merged again.
+ * Named scene objects under Casualty_<id>/Body: Skin, Rim, FloorRing, Torso, Head, LegL and LegR (empty anchors that carry the
+ * part's box size in their scale, used by the check card and tests), Dot_<id>, TagBand_<id>.
  */
-import { CasualtyId, PoseKind, CASUALTY_TABLE } from "./TriageData"
+import { CasualtyId, CASUALTY_TABLE } from "./TriageData"
+import {
+  Baked,
+  DIM,
+  FLOOR_RING_COLOUR,
+  Look,
+  Part,
+  Pose,
+  RIM_COLOUR,
+  STANDING_POSE,
+  bakeParts,
+  boundsOf,
+  findPart,
+  grounded,
+  partsFromPose,
+  poseForKind,
+} from "./TriageFigurePose"
 
 export interface FigureResources {
   box: RenderMesh
   sphere: RenderMesh
   material: Material
+  /** lit material that shows vertex colours (Uber PBR, Vertex Color = Base Color); figures need it */
+  litMaterial?: Material
   /** world cm of a scale-1 box / sphere (measured; see TriageMain inputs) */
   boxUnitCm: number
   sphereUnitCm: number
 }
 
-export interface Part {
-  name: string
-  kind: "box" | "sphere"
-  pos: number[]
-  size: number[]
-  rot?: number[]
-  col: number[]
-}
-
-const SKIN = [0.98, 0.82, 0.7]
-const PANTS = [0.62, 0.7, 0.86]
-const BANDAGE = [1, 1, 1]
-const PATCH = [1, 0.72, 0.75]
 const WALL = [0.6, 0.68, 0.78]
-const SHIRT: { [id: string]: number[] } = {
-  W1: [0.6, 0.92, 0.7],
-  W2: [0.96, 0.88, 0.55],
-  A: [0.6, 0.8, 1.0],
-  B: [0.96, 0.72, 0.82],
-  C: [0.82, 0.76, 0.96],
-  D: [1.0, 0.8, 0.6],
-  E: [0.7, 0.96, 0.9],
-  F: [0.92, 0.92, 0.72],
-  X: [0.82, 0.85, 0.93],
-}
-
-function box(name: string, pos: number[], size: number[], col: number[], rot?: number[]): Part {
-  return { name, kind: "box", pos, size, col, rot }
-}
-function ball(name: string, pos: number[], d: number, col: number[], rot?: number[]): Part {
-  return { name, kind: "sphere", pos, size: [d, d, d], col, rot }
-}
-
-function lyingBack(shirt: number[], spread: number): Part[] {
-  return [
-    box("Torso", [0, 9, 0], [38, 18, 52], shirt),
-    ball("Head", [0, 11, -39], 22, SKIN),
-    box("LegL", [-9, 6, 61], [14, 12, 70], PANTS, [0, -spread * 0.5, 0]),
-    box("LegR", [9, 6, 61], [14, 12, 70], PANTS, [0, spread * 0.5, 0]),
-    box("ArmL", [-26, 5, -2], [10, 10, 48], SKIN, [0, spread, 0]),
-    box("ArmR", [26, 5, -2], [10, 10, 48], SKIN, [0, -spread, 0]),
-  ]
-}
-
-function lyingSide(shirt: number[], handToHead: boolean): Part[] {
-  const p: Part[] = [
-    box("Torso", [0, 15, 0], [22, 30, 52], shirt),
-    ball("Head", [0, 17, -38], 22, SKIN),
-    box("LegBottom", [0, 8, 52], [14, 14, 60], PANTS, [0, -8, 0]),
-    box("LegTop", [0, 22, 50], [14, 14, 60], PANTS, [0, 8, 0]),
-  ]
-  if (handToHead) {
-    p.push(box("ArmUp", [10, 26, -30], [9, 9, 36], SKIN, [0, -20, 0]))
-  } else {
-    p.push(box("ArmFront", [14, 24, -16], [9, 9, 40], SKIN, [0, 15, 0]))
-  }
-  return p
-}
-
-function sitting(shirt: number[]): Part[] {
-  return [
-    box("Pelvis", [0, 6, 0], [34, 12, 26], PANTS),
-    box("LegL", [-10, 6, 40], [14, 12, 60], PANTS, [0, -6, 0]),
-    box("LegR", [10, 6, 40], [14, 12, 60], PANTS, [0, 6, 0]),
-    box("Torso", [0, 35, -1], [34, 46, 20], shirt),
-    ball("Head", [0, 70, 0], 22, SKIN),
-  ]
-}
-
-function poseParts(id: CasualtyId, pose: PoseKind): Part[] {
-  const shirt = SHIRT[id]
-  switch (pose) {
-    case "sitting_arm_cut":
-      return sitting(shirt).concat([
-        box("ArmL", [-22, 34, 0], [9, 40, 9], SKIN),
-        box("ArmR", [22, 34, 4], [9, 38, 9], SKIN),
-        box("Bandage", [22, 28, 4], [11, 13, 11], BANDAGE),
-        box("Patch", [22, 28, 10], [4, 5, 2], PATCH),
-      ])
-    case "sitting_holding_ankle":
-      return sitting(shirt).concat([
-        box("ArmL", [-22, 34, 0], [9, 40, 9], SKIN),
-        box("ArmR", [20, 18, 30], [9, 9, 50], SKIN, [0, 10, 0]),
-      ])
-    case "sitting_dazed":
-      return sitting(shirt)
-        .filter((p) => p.name !== "Head")
-        .concat([
-          ball("Head", [6, 69, 2], 22, SKIN),
-          box("ArmL", [-20, 28, 22], [9, 9, 40], SKIN),
-          box("ArmR", [20, 28, 22], [9, 9, 40], SKIN),
-        ])
-    case "slumped_against_wall":
-      return [
-        box("Pelvis", [0, 6, 0], [34, 12, 26], PANTS),
-        box("LegL", [-14, 6, 40], [14, 12, 60], PANTS, [0, -14, 0]),
-        box("LegR", [14, 6, 40], [14, 12, 60], PANTS, [0, 14, 0]),
-        box("Torso", [0, 33, -3], [34, 46, 20], shirt, [-12, 0, 0]),
-        ball("Head", [10, 62, -10], 22, SKIN),
-        box("ArmL", [-24, 22, 8], [9, 36, 9], SKIN, [20, 0, 0]),
-        box("ArmR", [24, 22, 8], [9, 36, 9], SKIN, [20, 0, 0]),
-      ]
-    case "lying_side":
-      return lyingSide(shirt, false)
-    case "lying_groaning":
-      return lyingSide(shirt, true)
-    case "lying_face_up_still":
-      return [
-        box("Torso", [0, 9, 0], [38, 18, 52], shirt),
-        ball("Head", [0, 11, -39], 22, SKIN),
-        box("LegL", [-8, 6, 61], [14, 12, 70], PANTS),
-        box("LegR", [8, 6, 61], [14, 12, 70], PANTS),
-        box("ArmL", [-25, 5, 0], [10, 10, 50], SKIN),
-        box("ArmR", [25, 5, 0], [10, 10, 50], SKIN),
-      ]
-    case "lying_back":
-    default:
-      return lyingBack(shirt, 18)
-  }
-}
-
-/** The part list a casualty starts with (used by the walker's stand-up animation). */
-export function startingParts(id: CasualtyId): Part[] {
-  return poseParts(id, CASUALTY_TABLE[id].pose)
-}
-
-/** The walker standing upright (floor y=0): same part names as the sitting poses so the figure can blend into it. */
-export function standingParts(id: CasualtyId): Part[] {
-  const shirt = SHIRT[id]
-  const p: Part[] = [
-    box("Pelvis", [0, 82, 0], [34, 12, 20], PANTS),
-    box("LegL", [-9, 40, 0], [14, 80, 14], PANTS),
-    box("LegR", [9, 40, 0], [14, 80, 14], PANTS),
-    box("Torso", [0, 110, 0], [34, 50, 20], shirt),
-    ball("Head", [0, 152, 0], 22, SKIN),
-    box("ArmL", [-23, 108, 0], [9, 44, 9], SKIN),
-    box("ArmR", [23, 108, 0], [9, 44, 9], SKIN),
-  ]
-  if (id === "W1") {
-    p.push(box("Bandage", [23, 100, 0], [11, 13, 11], BANDAGE))
-    p.push(box("Patch", [23, 100, 6], [4, 5, 2], PATCH))
-  }
-  return p
-}
-
-export const STANDING_HIP_Y = 80
-export const STANDING_SHOULDER_Y = 130
 
 /** Tag band colours (light; Expectant is dark grey and gets a white outline, never black). */
 export const TAG_BAND_COLOUR: { [tag: string]: number[] } = {
@@ -172,8 +52,17 @@ export const TAG_BAND_COLOUR: { [tag: string]: number[] } = {
   Black: [0.3, 0.3, 0.32],
 }
 
+function toQuat(r: number[]): quat {
+  return new quat(r[3], r[0], r[1], r[2])
+}
+
 export class TriageFigureBuilder {
   private matCache: { [key: string]: Material } = {}
+  private rimMaterial: Material | null = null
+  private looks: { [id: string]: Look } = {}
+  private poses: { [id: string]: Pose } = {}
+  private rigs: { [id: string]: { [name: string]: SceneObject } } = {}
+  private rigMeshes: { [key: string]: RenderMesh } = {}
 
   constructor(private res: FigureResources) {}
 
@@ -187,6 +76,23 @@ export class TriageFigureBuilder {
     }
     return m
   }
+
+  /** Light outline material: unlit, front faces culled, so only a thin halo of the inflated hull shows. */
+  private rim(): Material {
+    if (!this.rimMaterial) {
+      const m = this.res.material.clone()
+      m.mainPass.baseColor = new vec4(RIM_COLOUR[0], RIM_COLOUR[1], RIM_COLOUR[2], 1)
+      m.mainPass.cullMode = CullMode.Front
+      this.rimMaterial = m
+    }
+    return this.rimMaterial
+  }
+
+  private lit(): Material {
+    return this.res.litMaterial ? this.res.litMaterial : this.material([1, 1, 1])
+  }
+
+  // ------------------------------------------------------------------ primitives (room shell, markers, map)
 
   /** Create one primitive part under parent (also used for the room shell and markers). */
   createPart(parent: SceneObject, name: string, kind: "box" | "sphere", pos: number[], size: number[], col: number[], rot?: number[]): SceneObject {
@@ -206,33 +112,206 @@ export class TriageFigureBuilder {
     return so
   }
 
+  // ------------------------------------------------------------------ meshes from the pure body model
+
+  private meshFrom(b: Baked): RenderMesh {
+    const mb = new MeshBuilder([
+      { name: "position", components: 3 },
+      { name: "normal", components: 3, normalized: true },
+      { name: "color", components: 4 },
+    ])
+    mb.topology = MeshTopology.Triangles
+    mb.indexType = MeshIndexType.UInt16
+    mb.appendVerticesInterleaved(b.verts)
+    mb.appendIndices(b.idx)
+    const mesh = mb.getMesh()
+    mb.updateMesh()
+    return mesh
+  }
+
+  private addMesh(parent: SceneObject, name: string, mesh: RenderMesh, mat: Material): SceneObject {
+    const so = global.scene.createSceneObject(name)
+    so.setParent(parent)
+    const rmv = so.createComponent("Component.RenderMeshVisual") as RenderMeshVisual
+    rmv.mesh = mesh
+    rmv.mainMaterial = mat
+    return so
+  }
+
+  private child(parent: SceneObject, name: string): SceneObject | null {
+    for (let i = 0; i < parent.getChildrenCount(); i++) {
+      if (parent.getChild(i).name === name) return parent.getChild(i)
+    }
+    return null
+  }
+
+  private bodyOf(casualty: SceneObject): SceneObject {
+    return casualty.getChild(0)
+  }
+
+  /** (Re)build the merged lit mesh, the outline hull, the floor ring and the Torso / Head anchors from the figure's pose. */
+  private rebuildStatic(casualty: SceneObject, id: string): void {
+    const body = this.bodyOf(casualty)
+    const parts = partsFromPose(this.poses[id], this.looks[id])
+    const skinMesh = this.meshFrom(bakeParts(parts, 0))
+    const rimMesh = this.meshFrom(bakeParts(parts, DIM.rimWidth))
+    const skin = this.child(body, "Skin")
+    if (skin) {
+      const r = skin.getComponent("Component.RenderMeshVisual") as RenderMeshVisual
+      r.mesh = skinMesh
+      skin.enabled = true
+    } else {
+      this.addMesh(body, "Skin", skinMesh, this.lit())
+    }
+    const rim = this.child(body, "Rim")
+    if (rim) {
+      const r = rim.getComponent("Component.RenderMeshVisual") as RenderMeshVisual
+      r.mesh = rimMesh
+      rim.enabled = true
+    } else {
+      this.addMesh(body, "Rim", rimMesh, this.rim())
+    }
+    this.placeFloorRing(body, parts)
+    this.placeAnchors(body, parts)
+  }
+
+  /** A soft, light oval on the floor under the figure so it sits on the floor (no dark shadow). */
+  private placeFloorRing(body: SceneObject, parts: Part[]): void {
+    const b = boundsOf(parts)
+    const w = b.max[0] - b.min[0] + 16
+    const d = b.max[2] - b.min[2] + 16
+    const ringPart: Part = { name: "FloorRing", shape: "ring", pos: [0, 0, 0], rot: [0, 0, 0, 1], size: [w, 0.5, d], col: FLOOR_RING_COLOUR }
+    const mesh = this.meshFrom(bakeParts([ringPart], 0))
+    let ring = this.child(body, "FloorRing")
+    if (ring) {
+      ;(ring.getComponent("Component.RenderMeshVisual") as RenderMeshVisual).mesh = mesh
+    } else {
+      ring = this.addMesh(body, "FloorRing", mesh, this.material(FLOOR_RING_COLOUR))
+    }
+    ring.getTransform().setLocalPosition(new vec3((b.min[0] + b.max[0]) / 2, 0.4, (b.min[2] + b.max[2]) / 2))
+  }
+
+  /** Empty "Torso" and "Head" objects: world position / rotation of the part, scale = its box size / one box unit. */
+  private placeAnchors(body: SceneObject, parts: Part[]): void {
+    // "LegL" / "LegR" mark the lower legs (used to tell where the card may overlap the casualty)
+    const anchorParts: { [anchor: string]: string } = { Torso: "Torso", Head: "Head", LegL: "ShinL", LegR: "ShinR" }
+    for (const name in anchorParts) {
+      const p = findPart(parts, anchorParts[name])
+      let so = this.child(body, name)
+      if (!so) {
+        so = global.scene.createSceneObject(name)
+        so.setParent(body)
+      }
+      const t = so.getTransform()
+      t.setLocalPosition(new vec3(p.pos[0], p.pos[1], p.pos[2]))
+      t.setLocalRotation(toQuat(p.rot))
+      const u = this.res.boxUnitCm
+      t.setLocalScale(new vec3(p.size[0] / u, p.size[1] / u, p.size[2] / u))
+    }
+  }
+
+  // ------------------------------------------------------------------ the walker's rig (stand up + walk)
+
+  getPose(id: string): Pose {
+    return this.poses[id]
+  }
+
+  /** Split the (resting) figure into one object per body part so it can move. Hides the merged Skin / Rim. */
+  startRig(casualty: SceneObject, id: string): void {
+    const body = this.bodyOf(casualty)
+    const skin = this.child(body, "Skin")
+    const rim = this.child(body, "Rim")
+    if (skin) skin.enabled = false
+    if (rim) rim.enabled = false
+    const objs: { [name: string]: SceneObject } = {}
+    const parts = partsFromPose(this.poses[id], this.looks[id])
+    for (const p of parts) {
+      const local: Part = { name: p.name, shape: p.shape, pos: [0, 0, 0], rot: [0, 0, 0, 1], size: p.size, col: p.col }
+      const key = id + ":" + p.name + ":" + p.size.join(",")
+      let mesh = this.rigMeshes[key]
+      if (!mesh) {
+        mesh = this.meshFrom(bakeParts([local], 0, true))
+        this.rigMeshes[key] = mesh
+      }
+      const so = this.addMesh(body, "P_" + p.name, mesh, this.lit())
+      const hull = this.meshFrom(bakeParts([local], DIM.rimWidth, true))
+      this.addMesh(so, "PRim", hull, this.rim())
+      objs[p.name] = so
+    }
+    this.rigs[id] = objs
+    this.applyPose(casualty, id, this.poses[id])
+  }
+
+  /** The pose with the whole body lifted so nothing dips below the floor. */
+  groundedPose(id: string, pose: Pose): Pose {
+    return grounded(pose, this.looks[id])
+  }
+
+  /** Move the rig's parts (and the Torso / Head anchors) to a pose. */
+  applyPose(casualty: SceneObject, id: string, pose: Pose): void {
+    this.poses[id] = pose
+    const parts = partsFromPose(pose, this.looks[id])
+    const objs = this.rigs[id]
+    if (objs) {
+      for (const p of parts) {
+        const so = objs[p.name]
+        if (!so || isNull(so)) continue
+        const t = so.getTransform()
+        t.setLocalPosition(new vec3(p.pos[0], p.pos[1], p.pos[2]))
+        t.setLocalRotation(toQuat(p.rot))
+      }
+    }
+    this.placeAnchors(this.bodyOf(casualty), parts)
+  }
+
+  /** The walker has arrived: drop the rig and merge the figure again in its final pose. */
+  finishRig(casualty: SceneObject, id: string, pose: Pose): void {
+    const objs = this.rigs[id]
+    if (objs) {
+      for (const n in objs) {
+        if (objs[n] && !isNull(objs[n])) objs[n].destroy()
+      }
+    }
+    delete this.rigs[id]
+    this.poses[id] = pose
+    this.rebuildStatic(casualty, id)
+  }
+
+  // ------------------------------------------------------------------ tag band
+
   /**
-   * Wraps a coloured band round the casualty's torso (a slab slightly larger than the torso, across its
-   * long axis). Expectant ("Black") is dark grey with a white outline (white slab slightly thicker behind it).
-   * Returns the band root ("TagBand_<id>").
+   * Wraps a coloured band round the casualty's torso: a short elliptic ring slightly larger than the torso's
+   * cross-section, centred on the torso and turned with it. Expectant ("Black") is dark grey with a white outline
+   * (a thicker, slightly narrower white ring behind it, so a white edge shows above and below the band).
+   * Returns the band root ("TagBand_<id>"). The `standing` argument is kept for old callers; the pose decides.
    */
   addTagBand(casualty: SceneObject, id: CasualtyId, tag: string, standing: boolean = false): SceneObject {
-    const def = CASUALTY_TABLE[id]
-    const torso = (standing ? standingParts(id) : poseParts(id, def.pose)).filter((p) => p.name === "Torso")[0]
-    const parent = casualty.getChild(0) // "Body"
+    const torso = findPart(partsFromPose(this.poses[id], this.looks[id]), "Torso")
+    const body = this.bodyOf(casualty)
     const root = global.scene.createSceneObject("TagBand_" + id)
-    root.setParent(parent)
-    const s = torso.size
-    const upright = s[1] > s[2]
-    const T = 14 // slab thickness along the torso long axis
-    const dim = (w: number, thick: number): number[] => (upright ? [s[0] + w, thick, s[2] + w] : [s[0] + w, s[1] + w, thick])
+    root.setParent(body)
+    const T = 14 // band thickness along the torso's long axis
     const col = TAG_BAND_COLOUR[tag] || TAG_BAND_COLOUR.Red
+    const ring = (name: string, w: number, thick: number, c: number[]): void => {
+      const part: Part = { name: name, shape: "ring", pos: [0, 0, 0], rot: [0, 0, 0, 1], size: [torso.size[0] + w, thick, torso.size[2] + w], col: c }
+      const so = this.addMesh(root, name, this.meshFrom(bakeParts([part], 0, true)), this.material(c))
+      const t = so.getTransform()
+      t.setLocalPosition(new vec3(torso.pos[0], torso.pos[1], torso.pos[2]))
+      t.setLocalRotation(toQuat(torso.rot))
+    }
     if (tag === "Black") {
-      this.createPart(root, "Outline", "box", torso.pos, dim(2, T + 7), [1, 1, 1], torso.rot)
-      this.createPart(root, "Band", "box", torso.pos, dim(7, T), col, torso.rot)
+      ring("Outline", 2, T + 7, [1, 1, 1])
+      ring("Band", 7, T, col)
     } else {
-      this.createPart(root, "Band", "box", torso.pos, dim(7, T), col, torso.rot)
+      ring("Band", 7, T, col)
     }
     return root
   }
 
+  // ------------------------------------------------------------------ whole casualty
+
   /** Builds Casualty_<id> under parent at floor-relative (x, 0, z) rotated yawDeg. */
-  buildCasualty(parent: SceneObject, id: CasualtyId, x: number, z: number, yawDeg: number, needsBackrest: boolean, dotColour: number[]): SceneObject {
+  buildCasualty(parent: SceneObject, id: CasualtyId, x: number, z: number, yawDeg: number, needsBackrest: boolean, dotColour: number[], look: Look): SceneObject {
     const root = global.scene.createSceneObject("Casualty_" + id)
     root.setParent(parent)
     const t = root.getTransform()
@@ -241,14 +320,17 @@ export class TriageFigureBuilder {
     const body = global.scene.createSceneObject("Body")
     body.setParent(root)
     const def = CASUALTY_TABLE[id]
-    for (const p of poseParts(id, def.pose)) {
-      this.createPart(body, p.name, p.kind, p.pos, p.size, p.col, p.rot)
-    }
+    this.looks[id] = look
+    this.poses[id] = poseForKind(def.pose)
+    delete this.rigs[id]
+    this.rebuildStatic(root, id)
     if (needsBackrest) {
-      this.createPart(body, "Backrest", "box", [0, 30, -22], [80, 60, 6], WALL)
+      this.createPart(body, "Backrest", "box", [0, 30, -18.5], [80, 60, 6], WALL)
     }
-    // placeholder marker dot (step 3 will turn this into the real dot / check-card opener)
+    // marker dot (the check-card opener)
     this.createPart(root, "Dot_" + id, "sphere", [0, 105, 0], [7, 7, 7], dotColour)
     return root
   }
 }
+
+export { STANDING_POSE }

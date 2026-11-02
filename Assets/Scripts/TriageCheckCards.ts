@@ -698,7 +698,7 @@ export class TriageCheckCards extends BaseScriptComponent {
     const dot = this.dots[id]
     if (!cas || !this.builder) return
     const stands = !!this.standing[id]
-    this.builder.addTagBand(cas, id as CasualtyId, tag, stands)
+    this.main.getFigureBuilder().addTagBand(cas, id as CasualtyId, tag, stands)
     if (dot) {
       dot.root.enabled = false
       const sphere = this.findByName(cas, "Dot_" + id)

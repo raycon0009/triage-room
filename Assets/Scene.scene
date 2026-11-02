@@ -112,7 +112,7 @@
   Enabled: true
   renderLayer: 1310719
   LightType: Directional
-  Intensity: 1.000000
+  Intensity: 0.850000
   ShadowDensity: 0.440000
   ShadowBlurRadius: 4.000000
   ShadowTextureSize: 512
@@ -159,7 +159,7 @@
   Enabled: true
   renderLayer: 1310719
   LightType: Ambient
-  Intensity: 1.000000
+  Intensity: 1.250000
   ShadowDensity: 1.000000
   ShadowBlurRadius: 0.000000
   ShadowTextureSize: 512
@@ -1852,6 +1852,7 @@
       boxMesh: !<reference.RenderMesh> b318885e-afae-4cd7-aadc-e065b1de4b96
       sphereMesh: !<reference.RenderMesh> 5c6fb726-f357-4364-b0cc-5199bc30fc8a
       figureMaterial: !<reference.Material> 93f1578e-d348-493f-b228-ccaa1d6d079a
+      litMaterial: !<reference.Material> e975b87d-e194-40a2-8713-5d0a92d47d2d
       seed: !<float> 0.000000
       forceBlack: auto
       useDemoSeed: false

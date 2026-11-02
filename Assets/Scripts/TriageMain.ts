@@ -15,6 +15,7 @@ import { TriageScenarioUI } from "./TriageScenarioUI"
 import { CASUALTY_TABLE, CasualtyId } from "./TriageData"
 import { DEMO_SEED, ForceBlack, RunLayout, ROOM, generateRun, layoutSignature, resolveSeed, validateRun } from "./TriageLayout"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
+import { lookFor } from "./TriageFigurePose"
 
 export interface CasualtyState {
   id: CasualtyId
@@ -71,6 +72,9 @@ export class TriageMain extends BaseScriptComponent {
   @input
   @hint("Unlit material used (cloned and tinted) for figures and room shell")
   figureMaterial!: Material
+  @input
+  @hint("Lit material for the casualty figures: Uber PBR with Vertex Color = Base Color (soft, matte)")
+  litMaterial!: Material
   @ui.group_end
 
   @ui.separator
@@ -142,6 +146,7 @@ export class TriageMain extends BaseScriptComponent {
       box: this.boxMesh,
       sphere: this.sphereMesh,
       material: this.figureMaterial,
+      litMaterial: this.litMaterial,
       boxUnitCm: this.boxUnitCm,
       sphereUnitCm: this.sphereUnitCm,
     })
@@ -222,6 +227,11 @@ export class TriageMain extends BaseScriptComponent {
     return !!this.run
   }
 
+  /** The builder that made the casualties (the call-out uses it to animate the walker). */
+  getFigureBuilder(): TriageFigureBuilder {
+    return this.builder
+  }
+
   getCasualtyObject(id: string): SceneObject | null {
     const o = this.casualtyObjects[id]
     return o && !isNull(o) ? o : null
@@ -270,9 +280,11 @@ export class TriageMain extends BaseScriptComponent {
     }
     this.casualtyObjects = {}
     const dot = [0.55, 0.95, 1.0]
-    for (const c of this.run.casualties) {
-      this.casualtyObjects[c.id] = this.builder.buildCasualty(this.casualtiesRoot, c.id, c.x, c.z, c.yawDeg, c.needsBackrest, dot)
-    }
+    // each casualty gets its own clothing colour, skin tone and hair, chosen by the run's seed
+    this.run.casualties.forEach((c, i) => {
+      const look = lookFor(this.run.seed, i, c.id === "W1")
+      this.casualtyObjects[c.id] = this.builder.buildCasualty(this.casualtiesRoot, c.id, c.x, c.z, c.yawDeg, c.needsBackrest, dot, look)
+    })
   }
 
   /** Light play-area outline on the floor + a front wall the seated casualty leans against. */
