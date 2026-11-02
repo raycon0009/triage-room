@@ -94,3 +94,7 @@ The size limits come from your requirement ("roughly human height or length, not
 - Test 1 presses Start with LEAF's scripted interactor, not the IK interactor, so it does not check that the Start button is within arm's reach. No IK reachability scenario yet.
 - Not tested (deferred to build step 3): the groan from the casualty behind and the arrow at the edge of view. Done criterion 1 is therefore only partly covered.
 - Not built, so not tested: check cards, START engine, tags, call-out, timer, debrief (steps 2-4).
+
+## Git (2 Nov 2026)
+
+Git was set up for this project (local only, nothing pushed, no remote). First commit: `aa6ed76` "Build step 1: room, casualties, Start, scenario line; LEAF tests passing".
