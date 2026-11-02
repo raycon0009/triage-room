@@ -1,3 +1,28 @@
+# Shipped by Lens Studio
+
+# The lines below are automatically generated and updated by Lens Studio.
+# Please do not modify them manually, as changes will be overwritten each time!
+# If you want to make changes to this file, please put them either above or below this section.
+
+Cache/**
+PluginsUserPreferences/**
+Support/**
+BackUp/**
+Workspaces/**
+.vscode/**
+/jsconfig.json
+/tsconfig.json
+.DS_Store
+/spk_debug_key.pem
+*.lock
+
+# Shipped by Lens Studio
+
+# Triage Room: the Lens Studio block above ignores these two, but they are tracked project config. Lens Studio
+# rewrites that block, so they are un-ignored here (a later rule wins) instead of being deleted from it.
+!/tsconfig.json
+!/jsconfig.json
+
 # BEGIN Lens Studio managed Agents-Docs block
 .mcp.json
 .cursor/mcp.json
