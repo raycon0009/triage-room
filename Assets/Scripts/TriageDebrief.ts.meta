@@ -33,10 +33,11 @@
     cards: false
     clock: false
     endGraceSeconds: false
-    labelHeightCm: false
+    flashHz: false
     main: false
     mapForwardCm: false
     mapScale: false
+    panelDropCm: false
     timesUpSeconds: false
   ScriptTypesHidden:
     {}
@@ -54,29 +55,31 @@
       cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       mapForwardCm: !<float> 120.000000
       mapScale: 0.160000
-      labelHeightCm: !<float> 44.000000
+      panelDropCm: !<float> 3.000000
       endGraceSeconds: 1.200000
       timesUpSeconds: !<float> 3.000000
+      flashHz: 1.800000
   ScriptTypes:
     -
       {}
   InputLines:
-    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageDebrief - debrief map, scoring, end trigger (step 4)</span>"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageDebrief - debrief panel, map, restart (steps 4-5)</span>"}'
     - '// @ui {"widget":"separator"}'
     - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">References</span>"}'
     - '// @ui {"widget":"group_start", "label":"References"}'
-    - '// @input AssignableType_1 main {"hint":"Run orchestrator (room, casualty positions, new-run event)"}'
+    - '// @input AssignableType_1 main {"hint":"Run orchestrator (room, casualty positions, restart)"}'
     - '// @input AssignableType_2 cards {"hint":"Check cards (records: tag, time, extra checks)"}'
     - '// @input AssignableType_3 clock {"hint":"Run clock (end state: onRunEnded, endRun)"}'
     - '// @input AssignableType_4 callOut {"hint":"Call-out (the end waits until a called-out walker has arrived)"}'
-    - '// @input SceneObject cameraObject {"hint":"The camera object (labels face the viewer)"}'
+    - '// @input SceneObject cameraObject {"hint":"The camera object (things that stand up face the viewer)"}'
     - '// @ui {"widget":"group_end"}'
     - '// @ui {"widget":"separator"}'
     - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">Settings</span>"}'
     - '// @ui {"widget":"group_start", "label":"Settings"}'
-    - '// @input float mapForwardCm = 120 {"hint":"Distance of the map centre in front of the start position (cm)", "widget":"slider", "min":60, "max":200, "step":5}'
+    - '// @input float mapForwardCm = 120 {"hint":"Distance of the map and the panel in front of the start position (cm)", "widget":"slider", "min":60, "max":200, "step":5}'
     - '// @input float mapScale = 0.16 {"hint":"Map scale: room cm to map cm", "widget":"slider", "min":0.08, "max":0.3, "step":0.01}'
-    - '// @input float labelHeightCm = 44 {"hint":"Height of the label centres above the floor (cm)", "widget":"slider", "min":20, "max":70, "step":1}'
+    - '// @input float panelDropCm = 3 {"hint":"How far below eye level the centre of the panel sits (cm)", "widget":"slider", "min":0, "max":20, "step":1}'
     - '// @input float endGraceSeconds = 1.2 {"hint":"Pause after the last tag before the debrief opens (s)", "widget":"slider", "min":0, "max":3, "step":0.1}'
-    - "// @input float timesUpSeconds = 3 {\"hint\":\"How long the Time's up panel stays once the debrief is open (s)\", \"widget\":\"slider\", \"min\":1, \"max\":8, \"step\":0.5}"
+    - "// @input float timesUpSeconds = 2 {\"hint\":\"At time's up the Time's up panel is shown alone for this long, then the debrief panel appears (s)\", \"widget\":\"slider\", \"min\":0.5, \"max\":6, \"step\":0.5}"
+    - '// @input float flashHz = 1.8 {"hint":"Flash speed of NOT REACHED (flashes per second). 0 holds it at its bright phase (for a screenshot)", "widget":"slider", "min":0, "max":4, "step":0.1}'
     - '// @ui {"widget":"group_end"}'

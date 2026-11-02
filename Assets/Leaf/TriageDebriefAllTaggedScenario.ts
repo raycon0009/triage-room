@@ -1,12 +1,13 @@
 /**
- * Scenario 14 - done criterion 5 (build step 4), "everyone tagged" end:
+ * Scenario 14 - done criterion 5, "everyone tagged" end (updated for the build step 5 panel):
  *  - tagging the last casualty (here the called-out walker, who must have ARRIVED first) ends the run with reason
  *    "all-tagged" and opens the debrief;
- *  - the map lies flat on the floor about 1.2 m in front of the start position, each casualty at their real position
- *    (scaled down), the start position marked;
- *  - every casualty has an upright label above the map facing the viewer: my tag vs the correct tag (words + colours),
- *    time spent and extra checks; a wrong tag carries its one-line START explanation;
+ *  - ONE upright panel about 1.2 m in front, slightly below eye level, fully inside the view from the start position,
+ *    with large text; rows numbered 1-4 and the same numbers on the floor map's markers; no leader lines;
+ *  - each row shows my tag against the correct tag (words + colours), time and extra checks; a wrong tag carries its
+ *    one-line START explanation; the walker row says call-out and "reassessed later";
  *  - the summary counts are right for this scripted run (one wrong tag with one extra check);
+ *  - the floor map lies flat about 1.2 m in front, casualties at their real positions (scaled);
  *  - the timer, arrow, groan, open card and call-out button are gone.
  * The viewer's position is a test stand-in (setViewerOverride).
  */
@@ -27,6 +28,7 @@ import {
   casualtyWorldPos,
   FAR_VIEWER,
 } from "./TriageLeafHelpers"
+import {assertPanelReadableAndInView} from "./TriageLeafDebriefChecks"
 import {CASUALTY_TABLE} from "../Scripts/TriageData"
 
 function findByName(root: SceneObject, name: string): SceneObject | null {
@@ -87,9 +89,9 @@ export class TriageDebriefAllTaggedScenario extends Scenario {
     expect(clock.isEnded()).toBe(true)
     expect(clock.getEndReason()).toBe("all-tagged")
     expect(debrief.getReason()).toBe("all-tagged")
-    await sleep(300)
+    await sleep(400)
 
-    // ---- each entry: my tag, correct tag, time, extra checks
+    // ---- the entries: nobody missed, so the rows keep their order, numbered 1-4
     const entries = debrief.getEntries()
     expect(entries.length).toBe(4)
     for (const e of entries) {
@@ -98,16 +100,24 @@ export class TriageDebriefAllTaggedScenario extends Scenario {
       expect(e.correctTag).toBe(CASUALTY_TABLE[e.id].correctTag)
       expect(e.extraChecks).toBe(rec.extraChecks)
       expect(e.notReached).toBe(false)
+      const t = debrief.getRowTexts(e.id)
+      expect(t.name).toBe(e.shortName)
+      expect(t.stats).toBe(e.statsText)
+      expect(t.youWord).toBe(e.myWord)
+      expect(t.correctWord).toBe(e.correctWord)
+      expect(t.youLabel).toBe("You")
+      expect(t.correctLabel).toBe("Correct")
+      expect(t.notReached === undefined).toBe(true)
       if (e.id === walkerId) {
         expect(e.status).toBe("correct")
         expect(e.calledOut).toBe(true)
-        expect(e.timeText.indexOf("called out at ") === 0).toBe(true)
+        expect(e.statsText.indexOf("call-out ") === 0).toBe(true)
         expect(e.timeSeconds).toBeGreaterThan(0.3)
         expect(e.extraChecks).toBe(0)
-        expect(e.explanation.indexOf("reassesses walkers later") >= 0).toBe(true)
+        expect(t.explanation).toBe("Can walk → Green (reassessed later)")
       } else {
         expect(e.timeSeconds).toBeGreaterThan(0.2)
-        expect(e.timeText).toBe(Math.round(e.timeSeconds) + " s")
+        expect(e.statsText).toBe(Math.round(e.timeSeconds) + " s · " + e.extraChecks + " extra")
       }
     }
     const a = entries.filter((e) => e.id === "A")[0]
@@ -116,27 +126,30 @@ export class TriageDebriefAllTaggedScenario extends Scenario {
     expect(a.correctWord).toBe("RED")
     expect(a.extraChecks).toBe(1)
     expect(a.explanation).toBe("Rate 34 is over 30 → Red")
-    for (const e of entries) {
-      if (e.id !== "A" && e.id !== walkerId) {
-        expect(e.status).toBe("correct")
-        expect(e.extraChecks).toBe(0)
-      }
-    }
-
-    // ---- what the labels show (A: wrong tag)
-    const la = debrief.getLabelTexts("A")
-    expect(la.youWord).toBe("YELLOW")
-    expect(la.correctWord).toBe("RED")
-    expect(la.stats.indexOf("Extra checks 1") >= 0).toBe(true)
-    expect(la.explanation).toBe("Rate 34 is over 30 → Red")
-    const yc = debrief.getLabelTextColour("A", "youWord") as vec4
-    const rc = debrief.getLabelTextColour("A", "correctWord") as vec4
+    const ta = debrief.getRowTexts("A")
+    expect(ta.youWord).toBe("YELLOW")
+    expect(ta.correctWord).toBe("RED")
+    expect(ta.stats.indexOf(" · 1 extra") > 0).toBe(true)
+    expect(ta.explanation).toBe("Rate 34 is over 30 → Red")
+    // tag words keep their colour, everything else is white
+    const yc = debrief.getRowTextColour("A", "youWord") as vec4
+    const rc = debrief.getRowTextColour("A", "correctWord") as vec4
     expect(yc.r).toBeGreaterThan(0.9)
     expect(yc.g).toBeGreaterThan(0.8) // yellow
     expect(yc.b).toBeLessThan(0.5)
     expect(rc.r).toBeGreaterThan(0.9)
     expect(rc.g).toBeLessThan(0.6) // red
     expect(rc.b).toBeLessThan(0.6)
+    for (const name of ["name", "stats", "youLabel", "correctLabel", "explanation", "number"]) {
+      const c = debrief.getRowTextColour("A", name) as vec4
+      expect(c.r > 0.95 && c.g > 0.95 && c.b > 0.95).toBe(true)
+    }
+    for (const e of entries) {
+      if (e.id !== "A" && e.id !== walkerId) {
+        expect(e.status).toBe("correct")
+        expect(e.extraChecks).toBe(0)
+      }
+    }
 
     // ---- summary: 3 correct, 1 wrong, 0 missed, 1 extra check
     const s = debrief.getSummary()
@@ -148,20 +161,26 @@ export class TriageDebriefAllTaggedScenario extends Scenario {
     expect(s!.totalExtraChecks).toBe(1)
     expect(s!.timeUsedSeconds).toBeGreaterThan(1)
     expect(s!.text.indexOf("3 of 4 correct · 0 missed · 1 extra check · ") === 0).toBe(true)
-    expect(debrief.getSummaryTextValue()).toBe(s!.text)
+    expect(debrief.getSummaryLines()[0]).toBe("3 of 4 correct · 0 missed")
+    expect(debrief.getSummaryLines()[1].indexOf("1 extra check · ") === 0).toBe(true)
+    const sc = debrief.getSummaryLines().length
+    expect(sc).toBe(2)
 
-    // ---- the map: flat on the floor, about 1.2 m in front, casualties at their real positions (scaled), start marked
+    // ---- the panel: one, readable, fully in view; numbers on the markers; Restart at waist height
+    assertPanelReadableAndInView(debrief, tm, false)
+
+    // ---- the floor map: flat, about 1.2 m in front, casualties at their real positions (scaled), start marked
     const map = debrief.getMapObject() as SceneObject
     expect(map === null).toBe(false)
     const floorY = tm.sceneObject.getTransform().getWorldPosition().y
     const mp = map.getTransform().getWorldPosition()
     expect(Math.abs(mp.x)).toBeLessThan(5)
     expect(mp.z).toBeLessThan(-105)
-    expect(mp.z).toBeGreaterThan(-135) // about 1.2 m in front of the start position (z = 0)
+    expect(mp.z).toBeGreaterThan(-135)
     expect(mp.y - floorY).toBeGreaterThan(-0.5)
-    expect(mp.y - floorY).toBeLessThan(3) // on the floor
+    expect(mp.y - floorY).toBeLessThan(3)
     const up = map.getTransform().getWorldRotation().multiplyVec3(new vec3(0, 1, 0))
-    expect(up.y).toBeGreaterThan(0.999) // lies flat (top-down)
+    expect(up.y).toBeGreaterThan(0.999)
     expect(findByName(map, "StartMarker") === null).toBe(false)
     const scale = 0.16
     const midZ = (-410 + 260) / 2
@@ -173,21 +192,6 @@ export class TriageDebriefAllTaggedScenario extends Scenario {
       const mk = marker.getTransform().getWorldPosition()
       expect(Math.abs(mk.x - (mp.x + (real.x - room.x) * scale))).toBeLessThan(1)
       expect(Math.abs(mk.z - (mp.z + (real.z - room.z - midZ) * scale))).toBeLessThan(1)
-    }
-    const startM = (findByName(map, "StartMarker") as SceneObject).getTransform().getWorldPosition()
-    expect(Math.abs(startM.x - mp.x)).toBeLessThan(1)
-    expect(Math.abs(startM.z - (mp.z + (0 - midZ) * scale))).toBeLessThan(1)
-
-    // ---- labels stand upright above the map and face the viewer
-    for (const c of state.casualties) {
-      const lab = debrief.getLabelObject(c.id) as SceneObject
-      expect(lab === null).toBe(false)
-      const lp = lab.getTransform().getWorldPosition()
-      expect(lp.y - mp.y).toBeGreaterThan(20) // above the map
-      const fwd = lab.getTransform().getWorldRotation().multiplyVec3(new vec3(0, 0, 1))
-      expect(Math.abs(fwd.y)).toBeLessThan(0.01) // upright: no tilt
-      const toViewer = new vec3(FAR_VIEWER.x - lp.x, 0, FAR_VIEWER.z - lp.z).normalize()
-      expect(fwd.dot(toViewer)).toBeGreaterThan(0.99) // facing the viewer
       expect(debrief.isNotReachedFlashing(c.id)).toBe(false)
     }
 

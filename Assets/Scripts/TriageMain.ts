@@ -3,7 +3,9 @@
  * Owns: run creation (seeded), building the room shell and casualty figures, Start handling.
  * Expects @inputs wired by the scene bootstrap (see References). The object carrying this script is the
  * room root: its Y position is the FLOOR height (about -150 cm below the eyes); x/z origin = start position.
- * Public API for tests: getRunState(), startRun(), isStarted(), regenerate(seed, forceBlack), onRunStarted (Event).
+ * Public API for tests: getRunState(), startRun(), isStarted(), regenerate(seed, forceBlack), restart(), onRunStarted (Event).
+ * restart() (step 5): rebuilds everything with a NEW random seed whose cases / slots differ from the last run, and starts
+ * it. With a fixed seed set (or "Use demo seed") a restart repeats that fixed layout - that is what a fixed seed means.
  * Logs "TRIAGE_RUN_STATE {json}" on creation and "TRIAGE_STARTED" when Start is pressed.
  * Must not: author text/UI (UI modules do that) or implement check/START logic (later build steps).
  */
@@ -11,7 +13,7 @@ import Event, { PublicApi } from "SpectaclesInteractionKit.lspkg/Utils/Event"
 import { TriageStartUI } from "./TriageStartUI"
 import { TriageScenarioUI } from "./TriageScenarioUI"
 import { CASUALTY_TABLE, CasualtyId } from "./TriageData"
-import { ForceBlack, RunLayout, ROOM, generateRun, resolveSeed, validateRun } from "./TriageLayout"
+import { DEMO_SEED, ForceBlack, RunLayout, ROOM, generateRun, layoutSignature, resolveSeed, validateRun } from "./TriageLayout"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
 
 export interface CasualtyState {
@@ -84,6 +86,10 @@ export class TriageMain extends BaseScriptComponent {
   forceBlack: string = "auto"
 
   @input
+  @hint("Demo seed for the video: Black case ON, a walker (W1), a breathing non-walker (D, groaning) behind you to the right, C at the wall, X front-left. Overrides Seed and Black. Layout is documented in devpost/build-log.md")
+  useDemoSeed: boolean = false
+
+  @input
   @hint("Scenario line shown after Start")
   scenarioText: string = "A gas cylinder burst in the college canteen. The fire is out. You're the first trained volunteer inside — four people need you."
 
@@ -140,16 +146,57 @@ export class TriageMain extends BaseScriptComponent {
       sphereUnitCm: this.sphereUnitCm,
     })
     this.buildRoomShell()
-    this.regenerate(this.seed, this.forceBlack)
+    this.regenerate(this.configuredSeed(), this.configuredForceBlack())
     this.startUI.onStart.add(() => this.startRun())
+  }
+
+  /** The seed the inspector asks for: the demo seed, or the Seed field (0 = random). */
+  configuredSeed(): number {
+    return this.useDemoSeed ? DEMO_SEED : this.seed
+  }
+
+  configuredForceBlack(): string {
+    return this.useDemoSeed ? "on" : this.forceBlack
   }
 
   /** (Re)creates the run layout + casualty objects (hidden until Start). */
   regenerate(seed: number, forceBlack: string): RunState {
     const r = resolveSeed(seed, Date.now())
-    this.seedFixed = r.fixed
-    const fb: ForceBlack = r.fixed && (forceBlack === "on" || forceBlack === "off") ? forceBlack : "auto"
-    this.run = generateRun(r.seed, fb)
+    return this.applyRun(r.seed, r.fixed, forceBlack)
+  }
+
+  private restartCount = 0
+
+  /**
+   * Restart (build step 5): clear everything of the last run (casualties with their dots, bands and groan source are
+   * destroyed; cards, clock, call-out, groan / arrow and debrief reset through onRegenerated) and start a new run.
+   * No arguments: use the inspector settings - a random seed whose cases / slots differ from the last run, or the
+   * fixed / demo seed if one is set. With a seed (tests): that seed, fixed.
+   */
+  restart(seed?: number, forceBlack?: string): RunState {
+    let state: RunState
+    if (seed !== undefined) {
+      state = this.regenerate(seed, forceBlack || "auto")
+    } else if (this.configuredSeed() > 0) {
+      state = this.regenerate(this.configuredSeed(), this.configuredForceBlack())
+    } else {
+      const prev = this.run ? layoutSignature(this.run) : ""
+      let pick = 1
+      for (let i = 0; i < 40; i++) {
+        pick = (Math.floor(Date.now() + i * 104729 + this.restartCount * 7919) % 2147483646) + 1
+        if (layoutSignature(generateRun(pick, "auto")) !== prev) break
+      }
+      this.restartCount++
+      state = this.applyRun(pick, false, "auto")
+    }
+    this.startRun()
+    return state
+  }
+
+  private applyRun(seedValue: number, fixed: boolean, forceBlack: string): RunState {
+    this.seedFixed = fixed
+    const fb: ForceBlack = fixed && (forceBlack === "on" || forceBlack === "off") ? forceBlack : "auto"
+    this.run = generateRun(seedValue, fb)
     this.started = false
     this.buildCasualties()
     this.casualtiesRoot.enabled = false

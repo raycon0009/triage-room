@@ -249,3 +249,33 @@ Unchanged, re-run: the other 13.
 
 ### Capture (CapturePanelScreenshotTool only)
 One capture of the debrief after a run with the casualty behind (D, Yellow) never reached: the map on the floor, four upright labels in a 2 x 2 block with leader lines, "NOT REACHED" (flashing, caught at its dim phase) with YELLOW beside it, and the other three labels showing matching tags. The summary line sat above the frame. Taken from a temporary demo script (`TmpDemoDebrief`; scene object and script deleted before the commit, `Scene.scene` has no trace of it). `CaptureRuntimeViewTool` not used.
+
+## Step 5 (in progress): restart bug fixed; gate tests passing; captures and commit pending
+
+Status: not committed. All tests pass; the two captures were not taken (Lens Studio's TypeScript compile got stuck, see the end).
+
+### The restart bug: found and fixed
+- **Exact line:** not in the Lens scripts. It is in LEAF's scripted interactor, `Leaf.lspkg/Interactors/interactor/BaseLeafInteractor.ts`, `executeTrigger()`: after the trigger ends it runs `exitHover()` (which waits a frame) and then logs `target.getSceneObject().name`. On that frame `TriageDebrief.tick` ran the restart, whose `clear()` destroyed the whole old debrief, including the Restart button being pressed, so `getSceneObject()` on the destroyed button threw "Exception in HostFunction: Object is null". Confirmed with temporary logging around `pressButton("RestartButton")`: the exception came out of `pressButton`, 1 ms after the new run's `TRIAGE_STARTED`.
+- **Cause:** destroying an Interactable while an interactor still targets it. A real hand's SIK cursor has the same problem (the log showed a SIK `CursorViewModelUpdate ... Object is null` error once when targeted buttons were destroyed).
+- **Fix (`TriageDebrief.ts`):** `clear()` now disables the old debrief root at once (hidden; the button's colliders switch off, so the interactor lets go cleanly) and destroys it 0.5 s later (`RETIRE_SECONDS`, `destroyRetired()` in the update). New test API `getRetiredCount()`.
+- **Test (`TriageRestartScenario.ts`):** after the press it waits (up to 2 s) for the old debrief to be destroyed and asserts `getRetiredCount() == 0` before the "nothing left" scans. Temporary logging removed.
+
+### Start screen
+- `triage-start-screen` failed once: the "Start" button label was size 39, and the scenario requires every start-screen text to be above 45 ("none of it tiny"). The button label role was raised to 52 (same as the footnote) in `TriageStartUI.ts`; it fits the 14 x 5.5 cm button. Passed on the next run.
+
+### Gate results (2 Nov 2026, after both fixes)
+- `node devpost/tests/start-engine.test.mjs`: 12/12. `node devpost/tests/scoring.test.mjs`: 23/23.
+- LEAF, each run on its own: **17 of 17 pass** (`triage-start-screen`, `triage-start-four-casualties`, `triage-one-behind`, `triage-scenario-line`, `triage-seed-repeatable`, `triage-real-size-on-floor`, `triage-behind-never-walker-f-x`, `triage-card-opens-proximity-and-open`, `triage-card-scripted-results-and-tag-gating`, `triage-tag-closes-card-adds-band`, `triage-start-rules-in-lens`, `triage-callout-walker-only`, `triage-timer-chime-and-time-up`, `triage-groan-and-arrow-behind`, `triage-debrief-all-tagged`, `triage-debrief-time-up-not-reached`, `triage-restart-and-seeds`). No "Object is null" or SIK error in the log over the whole series (only the preview's known audio-device line "Can not Set Media Type for Sink Writer").
+
+### Not done: captures, scene save, commit
+- While setting up the captures, the `QueryRuntimeSceneTool` MCP call silently installed three packages (`Packages/AiPreviewAgentInspect.lspkg`, `Icons.lspkg`, `Motion.lspkg`) and added a scene object "AiPreviewAgent Handler". The package's example scripts do not compile in this project. The packages were moved out of the project (not deleted) and the scene object was removed from the open scene (it was never saved).
+- During that removal Lens Studio logged `"Compiling TypeScript" Failed: Invalid transition from Immutable to Mutable`, and since then the preview says "TypeScript is not compiled" and recompile requests time out. Lens Studio probably needs a restart before the captures.
+
+### Earlier attempts (before the fix)
+
+- `triage-restart-and-seeds` fails with `Error: Exception in HostFunction: Object is null`.
+- Run 1: at about 10.46 s lens time. Run 2, after making the scene scans (`countNamed`, `hasDescendantNamed`) skip destroyed objects: at about 10.55 s. Same place both times.
+- In both runs the Restart press works. The log shows a new `TRIAGE_RUN_STATE`, then `TRIAGE_STARTED` and `TRIAGE_TIMER_START`. The error comes within about 50 ms of that, inside the scenario's checks after the restart.
+- Not yet found: which line throws. Candidates: `debrief.getSceneObject().getChildrenCount()`, `gs.getParent().name`, `tm.getCasualtyObject()` or `casualtyWorldPos` on a destroyed object, and the `debrief.get*Object()` getters for objects destroyed this frame.
+- Passing after the step 5 edits: `triage-debrief-all-tagged`, `triage-debrief-time-up-not-reached`, `node devpost/tests/scoring.test.mjs` (23/23).
+- Not yet run after the step 5 edits: `triage-start-screen`, the other 15 earlier scenarios, `start-engine.test.mjs`, and the two captures.

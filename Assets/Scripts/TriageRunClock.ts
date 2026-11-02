@@ -251,8 +251,8 @@ export class TriageRunClock extends BaseScriptComponent {
     flex.paddingRight = 3
     flex.width = -1
     flex.height = -1
-    this.addText(content, "TimesUpTitle", this.timesUpText, 110, 26, 6)
-    this.addText(content, "TimesUpSub", this.timesUpSubText, 40, 26, 2.2)
+    this.addText(content, "TimesUpTitle", this.timesUpText, 130, 30, 6.4)
+    this.addText(content, "TimesUpSub", this.timesUpSubText, 62, 30, 2.6)
     root.enabled = false
     this.timesUp = root
   }

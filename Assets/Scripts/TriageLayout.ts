@@ -53,6 +53,19 @@ export const ROOM = {
   minorZone: { x: -106, z: -106, diameterCm: 100 },
 }
 
+/**
+ * The named demo seed for the video recording (use it with Black = "on"; TriageMain "Use demo seed" does both).
+ * Layout (floor-relative cm, x right, z toward the user's back): D (lying, groaning, breathing) BEHIND, to the right
+ * at about (46, 213); C slumped at the WALL (0, -380); X (Expectant) front-left at about (-95, -238);
+ * W1 (the walker, arm cut) front-right at about (96, -249).
+ */
+export const DEMO_SEED = 77
+
+/** Which cases lie where (ignores the small position jitter): used to make a restart change the layout. */
+export function layoutSignature(run: RunLayout): string {
+  return run.casualties.map((c) => c.id + ":" + c.slot).join(",")
+}
+
 export function mulberry32(seed: number): () => number {
   let a = seed | 0
   return function () {

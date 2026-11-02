@@ -45,8 +45,8 @@ type OpenReason = "proximity" | "button"
 
 const TYPE_BUTTON = 44
 const TYPE_TITLE = 50
-const TYPE_STATUS = 36
-const TYPE_TAG = 32
+const TYPE_STATUS = 46
+const TYPE_TAG = 40
 const BUTTON_LABEL_Z = 0.08
 const CONTENT_Z = 0.6
 

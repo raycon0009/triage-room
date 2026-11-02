@@ -17,8 +17,8 @@ type TextRole = "Title2" | "Headline2" | "Button" | "Caption"
 const TYPE_SCALE: Record<TextRole, { size: number; weight: number }> = {
   Title2: { size: 93, weight: 700 },
   Headline2: { size: 48, weight: 700 },
-  Button: { size: 39, weight: 500 },
-  Caption: { size: 38, weight: 500 },
+  Button: { size: 52, weight: 500 },
+  Caption: { size: 52, weight: 500 },
 }
 function applyTextRole(t: Text, role: TextRole): void {
   t.size = TYPE_SCALE[role].size * FONT_SIZE_SCALE

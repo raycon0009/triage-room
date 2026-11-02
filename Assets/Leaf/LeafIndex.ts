@@ -15,6 +15,8 @@ import {TriageTimerScenario} from "./TriageTimerScenario"
 import {TriageBehindCueScenario} from "./TriageBehindCueScenario"
 import {TriageDebriefAllTaggedScenario} from "./TriageDebriefAllTaggedScenario"
 import {TriageDebriefTimeUpScenario} from "./TriageDebriefTimeUpScenario"
+import {TriageRestartScenario} from "./TriageRestartScenario"
+import {TriageStartScreenScenario} from "./TriageStartScreenScenario"
 
 @component
 export class LeafIndex extends BaseScriptComponent {
@@ -35,5 +37,7 @@ export class LeafIndex extends BaseScriptComponent {
     {id: "triage-groan-and-arrow-behind", typename: TriageBehindCueScenario.getTypeName()},
     {id: "triage-debrief-all-tagged", typename: TriageDebriefAllTaggedScenario.getTypeName()},
     {id: "triage-debrief-time-up-not-reached", typename: TriageDebriefTimeUpScenario.getTypeName()},
+    {id: "triage-restart-and-seeds", typename: TriageRestartScenario.getTypeName()},
+    {id: "triage-start-screen", typename: TriageStartScreenScenario.getTypeName()},
   ]
 }

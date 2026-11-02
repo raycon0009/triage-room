@@ -240,7 +240,8 @@ export function cleanup3(tm: TriageMain, cards: TriageCheckCards): void {
   const deb = getDebrief()
   deb.setViewerOverride(null)
   deb.endGraceSeconds = 1.2
-  deb.timesUpSeconds = 3
+  deb.timesUpSeconds = 2
+  deb.flashHz = 1.8
   getClock().configure(180, 30)
   cleanup(tm, cards)
 }
