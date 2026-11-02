@@ -106,6 +106,12 @@ export class TriageMain extends BaseScriptComponent {
   sphereUnitCm: number = 1
   @ui.group_end
 
+  private _onRegenerated = new Event<RunState>()
+  /** Fires after every (re)generation, once the new casualty objects exist (step 2 cards rebuild on it). */
+  get onRegenerated(): PublicApi<RunState> {
+    return this._onRegenerated.publicApi()
+  }
+
   private _onRunStarted = new Event<RunState>()
   get onRunStarted(): PublicApi<RunState> {
     return this._onRunStarted.publicApi()
@@ -149,6 +155,7 @@ export class TriageMain extends BaseScriptComponent {
     this.casualtiesRoot.enabled = false
     const state = this.getRunState()
     print("TRIAGE_RUN_STATE " + JSON.stringify(state))
+    this._onRegenerated.invoke(state)
     return state
   }
 
@@ -161,6 +168,16 @@ export class TriageMain extends BaseScriptComponent {
     this.scenarioUI.showScenario(this.scenarioText, this.scenarioHoldSeconds, this.scenarioFadeSeconds)
     print("TRIAGE_STARTED")
     this._onRunStarted.invoke(this.getRunState())
+  }
+
+  /** True once the first run layout exists. */
+  isReady(): boolean {
+    return !!this.run
+  }
+
+  getCasualtyObject(id: string): SceneObject | null {
+    const o = this.casualtyObjects[id]
+    return o && !isNull(o) ? o : null
   }
 
   isStarted(): boolean {

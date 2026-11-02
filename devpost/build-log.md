@@ -98,3 +98,48 @@ The size limits come from your requirement ("roughly human height or length, not
 ## Git (2 Nov 2026)
 
 Git was set up for this project (local only, nothing pushed, no remote). First commit: `aa6ed76` "Build step 1: room, casualties, Start, scenario line; LEAF tests passing".
+
+## Build step 2: check cards and START engine (2 Nov 2026)
+
+**Status: gate passed.** START tests 12/12, LEAF 10/10 (6 from step 1 + 4 new), run one at a time on the final scene.
+
+### What was built
+- `Assets/Scripts/TriageStartEngine.ts`: pure TypeScript, no scene or Lens Studio dependency. Applies the START rules in order and stops at the first rule that decides. Input: scripted findings + the checks done. Output: `{decided, tag, decidingStep, extraChecks}`. Extra checks = each distinct check done whose step is later than the deciding step (+1 each); tagging at the deciding step is 0. Also holds the scripted result text for each check and the tag words (GREEN, YELLOW, RED, EXPECTANT).
+- `Assets/Scripts/TriageCheckCards.ts` (scene object `TriageCards`): a dot with an "Open"/"Close" button above each casualty; one shared check card (UI Kit BackPlate + FlexLayout + Buttons, SIK interaction); proximity opening within 150 cm (closes beyond 220 cm if it opened by proximity); card about 80 cm from the eyes with its top 6 cm below eye level, turned to face the viewer, glides to a new spot only when the viewer turns more than 40 degrees or moves; four check buttons (Breathing?, Breathing rate, Pulse / refill, Follows commands?) showing the scripted result after a press; the rate slot becomes "Open airway" once "Breathing: No" is shown; tag panel (RED, YELLOW, GREEN, EXPECTANT) below the card, enabled only when the engine says a step has decided; tagging closes the card, adds a coloured band round the torso and the tag word above the casualty (EXPECTANT is dark grey with a white outline, never black; words are light).
+- Records kept per casualty for the step 4 debrief: checks made (in order, distinct), total presses, seconds the card was open, tag chosen, correct tag, deciding step, extra checks. API: `getRecord(id)`, `getRecords()`, `onCasualtyTagged`.
+- Small hooks in step 1 code: `TriageMain.onRegenerated`, `isReady()`, `getCasualtyObject(id)`; `TriageFigureBuilder.addTagBand`.
+- Test file: `devpost/tests/start-engine.test.mjs` (run `node devpost/tests/start-engine.test.mjs`, Node 22.18+).
+
+### Decisions I made (change if you disagree)
+- A walker's card shows "Can walk: Yes" and the tag buttons straight away (deciding step 0, no checks). Any check pressed on a walker shows "—" and counts as an extra check.
+- "—" results (a check the table says is never needed) are shown as "<check>: —" and count as an extra check if pressed after the deciding step.
+- Pulse and capillary refill are one button ("Pulse / refill"), as in the brief's table.
+- All four tag buttons are offered once a step has decided; the player can pick a wrong one and the debrief will show it.
+- The dot shows "Open" and becomes "Close" while its card is open. Pressing "Close" keeps that card shut until the viewer has walked away and come back. (Not in the brief; it gives a way to dismiss a card.)
+- A card opened with "Open" from a distance stays open until tagged or closed; walking up to a different casualty switches the card to them.
+- Tag buttons are text-coloured (not filled) because UI Kit buttons have no per-button fill colour.
+
+### START tests (plain Node, `devpost/tests/start-engine.test.mjs`): 12 of 12 pass
+Cases 1-12 from the brief, plus: undecided before the deciding check, walker + 2 checks = 2 extra, and every pool casualty (W1, W2, A-F, X) through its own check sequence gives the table's tag and deciding step with 0 extra. No scripted value is exactly 30/min or exactly 2 s.
+
+### LEAF (Lens Studio preview, SPECS 27): 10 of 10 pass
+Step 1 (unchanged, re-run): triage-start-four-casualties, triage-one-behind, triage-scenario-line, triage-seed-repeatable, triage-real-size-on-floor, triage-behind-never-walker-f-x.
+New:
+- `triage-card-opens-proximity-and-open` (criterion 3): "Open" on A's dot opens the card from far away (reason: button); "Close" closes it and it stays shut; standing 90 cm away opens it by proximity; card is 70-90 cm from the viewer, its centre below eye level, facing the viewer within about 18 degrees; walking away closes it.
+- `triage-card-scripted-results-and-tag-gating` (criterion 3): casualty D's four buttons show "Breathing: Yes", "Rate: 16/min", "Pulse present, refill 1 s", "Follows commands: Yes"; the tag panel is hidden until the last check, then the four tag buttons appear.
+- `triage-tag-closes-card-adds-band` (criteria 3 and 4, D -> Yellow): tagging closes the card, adds the band and the word "YELLOW", record has 0 extra checks, 4 checks, time on card above 0.
+- `triage-start-rules-in-lens` (criterion 4): rate 34 -> tag buttons appear right after "Breathing rate" -> Red, 0 extra; pulse pressed after that -> "Pulse / refill: —", extraChecks 1; X: "Breathing: No", button reads "Open airway", then "After airway: not breathing" -> EXPECTANT, band dark grey (r between 0.2 and 0.5) with a white outline.
+
+### How these were pressed
+Every button press in LEAF is a real UI Kit button press by LEAF's scripted interactor (`DefaultLeafInteractor`), not a hand-IK reach. The viewer position for "walk up" is a test stand-in (`setViewerOverride`) because LEAF cannot walk the preview camera. No IK reachability scenario was written for the card buttons.
+
+### Capture (CapturePanelScreenshotTool only)
+One preview capture shows an open card ("Lying face up, still", casualty F) and a tagged casualty X (dark grey band, white outline, the word EXPECTANT cut off at the right edge of the view). A temporary demo script tagged X; the script, its scene object and a temporary LEAF scenario were deleted afterwards. `CaptureRuntimeViewTool` was not used.
+
+### What failed or needs a note
+- First run of the card-opens scenario failed once ("Object is null"): `closeCard` touched the dots of the previous run's destroyed casualties. Fixed (reset the dots first, skip destroyed objects); passed on the next run. No test failed twice.
+- Mouse clicks injected into the preview (`InjectPreviewGesture`) pressed the card buttons only about one time in three (a press registered only after the cursor had already hovered the same button). Hover highlight works every time. I could not tell whether this is the tool or the Lens, so **real mouse presses on the card buttons in Interactive Preview are not proven**; LEAF presses are proven. Please click through a card yourself.
+- The card is big in the narrow preview view (about 34 cm wide at 80 cm); when the viewer looks steeply down at a casualty the card's top sits above the view. Comfort on real glasses: feel unproven.
+- The tag word above a casualty can be cut off by the edge of the view when the casualty is at the side.
+- Not built (later steps): timer, call-out, groan, arrow, chime, debrief, shuffle/restart. Walker does not stand up yet.
+- The project was saved from Lens Studio (the `TriageCards` object is in `Assets/Scene.scene`). A backup was not taken before this step; git holds step 1.

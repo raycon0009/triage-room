@@ -5,6 +5,11 @@
  */
 import {findSceneObjectByName} from "Leaf.lspkg/Utils/common/Utils"
 import {TriageMain, RunState} from "../Scripts/TriageMain"
+import {TriageCheckCards} from "../Scripts/TriageCheckCards"
+import {generateRun} from "../Scripts/TriageLayout"
+import {DefaultLeafInteractor} from "Leaf.lspkg/Interactors/interactor/DefaultLeafInteractor"
+import {findInteractableByName} from "Leaf.lspkg/Interactors/InteractableUtils"
+import {sleep} from "Leaf.lspkg/Utils/common/Utils"
 
 export function getTriageMain(): TriageMain {
   const room = findSceneObjectByName("TriageRoom")
@@ -90,4 +95,74 @@ export function layoutKey(state: RunState): string {
   return JSON.stringify(
     state.casualties.map((c) => [c.id, c.slot, c.position.x, c.position.y, c.position.z]),
   )
+}
+
+// ---- build step 2 helpers (check cards) ----
+
+export function getCards(): TriageCheckCards {
+  const o = findSceneObjectByName("TriageCards")
+  if (!o) {
+    throw new Error('Scene object "TriageCards" not found')
+  }
+  const c = o.getComponent(TriageCheckCards.getTypeName()) as TriageCheckCards
+  if (!c) {
+    throw new Error("TriageCheckCards component not found on TriageCards")
+  }
+  return c
+}
+
+/** First seed (1..400) whose layout contains casualty `id` as a non-behind casualty, with Black forced on/off. */
+export function findSeedWith(id: string, forceBlack: "on" | "off"): number {
+  for (let seed = 1; seed <= 400; seed++) {
+    const run = generateRun(seed, forceBlack)
+    if (run.casualties.some((c) => c.id === id && !c.behind)) {
+      return seed
+    }
+  }
+  throw new Error("No seed found containing " + id)
+}
+
+/** Viewer at the start position, far from everybody (nobody within 150 cm). */
+export const FAR_VIEWER = new vec3(0, 0, 0)
+
+/** Fixed-seed started run with the viewer standing far away (no proximity opening). */
+export async function startRunFar(tm: TriageMain, cards: TriageCheckCards, seed: number, forceBlack: string): Promise<RunState> {
+  cards.setViewerOverride(FAR_VIEWER)
+  cards.closeCard()
+  const state = startFixedRun(tm, seed, forceBlack)
+  await sleep(400)
+  return state
+}
+
+/** Pinch a UI Kit button by its scene-object name with LEAF's scripted interactor. */
+export async function pressButton(name: string): Promise<void> {
+  const target = findInteractableByName(name)
+  if (!target) {
+    throw new Error('Interactable "' + name + '" not found')
+  }
+  const interactor = new DefaultLeafInteractor()
+  await interactor.trigger(target)
+  await sleep(250)
+}
+
+/** World position of a casualty. */
+export function casualtyWorldPos(tm: TriageMain, id: string): vec3 {
+  const o = tm.getCasualtyObject(id)
+  if (!o) {
+    throw new Error("Casualty " + id + " not in this run")
+  }
+  return o.getTransform().getWorldPosition()
+}
+
+/** A spot 90 cm from casualty `id`, towards the start position, at eye height. */
+export function standNear(tm: TriageMain, id: string): vec3 {
+  const p = casualtyWorldPos(tm, id)
+  const len = Math.sqrt(p.x * p.x + p.z * p.z) || 1
+  return new vec3(p.x - (p.x / len) * 90, 0, p.z - (p.z / len) * 90)
+}
+
+export function cleanup(tm: TriageMain, cards: TriageCheckCards): void {
+  cards.setViewerOverride(null)
+  cards.closeCard()
+  resetToFreshStart(tm)
 }

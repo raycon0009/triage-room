@@ -137,6 +137,14 @@ function poseParts(id: CasualtyId, pose: PoseKind): Part[] {
   }
 }
 
+/** Tag band colours (light; Expectant is dark grey and gets a white outline, never black). */
+export const TAG_BAND_COLOUR: { [tag: string]: number[] } = {
+  Red: [1, 0.3, 0.3],
+  Yellow: [1, 0.88, 0.25],
+  Green: [0.3, 0.95, 0.45],
+  Black: [0.3, 0.3, 0.32],
+}
+
 export class TriageFigureBuilder {
   private matCache: { [key: string]: Material } = {}
 
@@ -169,6 +177,31 @@ export class TriageFigureBuilder {
     rmv.mesh = kind === "box" ? this.res.box : this.res.sphere
     rmv.mainMaterial = this.material(col)
     return so
+  }
+
+  /**
+   * Wraps a coloured band round the casualty's torso (a slab slightly larger than the torso, across its
+   * long axis). Expectant ("Black") is dark grey with a white outline (white slab slightly thicker behind it).
+   * Returns the band root ("TagBand_<id>").
+   */
+  addTagBand(casualty: SceneObject, id: CasualtyId, tag: string): SceneObject {
+    const def = CASUALTY_TABLE[id]
+    const torso = poseParts(id, def.pose).filter((p) => p.name === "Torso")[0]
+    const parent = casualty.getChild(0) // "Body"
+    const root = global.scene.createSceneObject("TagBand_" + id)
+    root.setParent(parent)
+    const s = torso.size
+    const upright = s[1] > s[2]
+    const T = 14 // slab thickness along the torso long axis
+    const dim = (w: number, thick: number): number[] => (upright ? [s[0] + w, thick, s[2] + w] : [s[0] + w, s[1] + w, thick])
+    const col = TAG_BAND_COLOUR[tag] || TAG_BAND_COLOUR.Red
+    if (tag === "Black") {
+      this.createPart(root, "Outline", "box", torso.pos, dim(2, T + 7), [1, 1, 1], torso.rot)
+      this.createPart(root, "Band", "box", torso.pos, dim(7, T), col, torso.rot)
+    } else {
+      this.createPart(root, "Band", "box", torso.pos, dim(7, T), col, torso.rot)
+    }
+    return root
   }
 
   /** Builds Casualty_<id> under parent at floor-relative (x, 0, z) rotated yawDeg. */

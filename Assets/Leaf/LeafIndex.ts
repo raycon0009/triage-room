@@ -6,6 +6,10 @@ import {TriageScenarioLineScenario} from "./TriageScenarioLineScenario"
 import {TriageSeedScenario} from "./TriageSeedScenario"
 import {TriageSizeScenario} from "./TriageSizeScenario"
 import {TriageBehindRuleScenario} from "./TriageBehindRuleScenario"
+import {TriageCardOpenScenario} from "./TriageCardOpenScenario"
+import {TriageCardResultsScenario} from "./TriageCardResultsScenario"
+import {TriageCardTagScenario} from "./TriageCardTagScenario"
+import {TriageStartRulesScenario} from "./TriageStartRulesScenario"
 
 @component
 export class LeafIndex extends BaseScriptComponent {
@@ -17,5 +21,9 @@ export class LeafIndex extends BaseScriptComponent {
     {id: "triage-seed-repeatable", typename: TriageSeedScenario.getTypeName()},
     {id: "triage-real-size-on-floor", typename: TriageSizeScenario.getTypeName()},
     {id: "triage-behind-never-walker-f-x", typename: TriageBehindRuleScenario.getTypeName()},
+    {id: "triage-card-opens-proximity-and-open", typename: TriageCardOpenScenario.getTypeName()},
+    {id: "triage-card-scripted-results-and-tag-gating", typename: TriageCardResultsScenario.getTypeName()},
+    {id: "triage-tag-closes-card-adds-band", typename: TriageCardTagScenario.getTypeName()},
+    {id: "triage-start-rules-in-lens", typename: TriageStartRulesScenario.getTypeName()},
   ]
 }

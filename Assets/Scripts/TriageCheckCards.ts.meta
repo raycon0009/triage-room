@@ -1,0 +1,76 @@
+- !<AssetImportMetadata/b4c1df64-7802-4aa0-abdb-cdc0d8be3ff0>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> 4886b0d8-f8b7-42fe-a739-e5da166d8e0c
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> 4886b0d8-f8b7-42fe-a739-e5da166d8e0c
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> e0702c5a-b246-4304-b147-a6edc9fd2089
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/e0702c5a-b246-4304-b147-a6edc9fd2089>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  VersionPrerelease: ""
+  UpdateOrder: 0
+  ComponentUid: 925eb0ca-4544-4fc9-b2c5-cccb1bf51811
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    cameraObject: false
+    cardDistanceCm: false
+    cardDropCm: false
+    cooldownSeconds: false
+    leaveCm: false
+    main: false
+    proximityCm: false
+    textColor: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - main: !<MappingBased.AssignableType_1> 00000000-0000-0000-0000-000000000000
+      cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      proximityCm: !<float> 150.000000
+      leaveCm: !<float> 220.000000
+      cardDistanceCm: !<float> 80.000000
+      cardDropCm: !<float> 6.000000
+      cooldownSeconds: !<float> 1.000000
+      textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageCheckCards - dots, check card, tags (step 2)</span>"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">References</span>"}'
+    - '// @ui {"widget":"group_start", "label":"References"}'
+    - '// @input AssignableType_1 main {"hint":"Run orchestrator (casualty objects, Start state)"}'
+    - '// @input SceneObject cameraObject {"hint":"The camera object (viewer eye position / look direction)"}'
+    - '// @ui {"widget":"group_end"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">Settings</span>"}'
+    - '// @ui {"widget":"group_start", "label":"Settings"}'
+    - '// @input float proximityCm = 150 {"hint":"The card opens by itself when the viewer is within this distance of a casualty (cm)", "widget":"slider", "min":80, "max":250, "step":5}'
+    - '// @input float leaveCm = 220 {"hint":"A card that opened by proximity closes again beyond this distance (cm)", "widget":"slider", "min":120, "max":400, "step":5}'
+    - '// @input float cardDistanceCm = 80 {"hint":"Distance of the card from the eyes (cm)", "widget":"slider", "min":50, "max":120, "step":1}'
+    - '// @input float cardDropCm = 6 {"hint":"How far the top of the card sits below eye level (cm)", "widget":"slider", "min":0, "max":40, "step":1}'
+    - "// @input float cooldownSeconds = 1 {\"hint\":\"Pause after tagging before a nearby casualty's card may open by itself (s)\", \"widget\":\"slider\", \"min\":0.2, \"max\":3, \"step\":0.1}"
+    - '// @input vec4 textColor = "{1,1,1,1}" {"hint":"Colour of card text (keep it light; black is invisible on additive displays)", "widget":"color"}'
+    - '// @ui {"widget":"group_end"}'

@@ -6,6 +6,9 @@
     - !<own> f5d74682-203a-4970-81ea-9fa7b88c96bb
     - !<own> b039e6ba-cb6f-4756-8390-04d1e0ebd475
     - !<own> aff7db24-e2cf-438c-bc5e-0be560e671d3
+    - !<own> 1c6bb66e-8e04-4a36-ab6f-04084fc8a45d
+    - !<own> 06d72960-af0f-4363-8ab5-43d6b68eec69
+    - !<own> 53730f6d-fa2c-44d4-ac29-8212e7ab798a
   layers: !<Layers/267ee9a7-aff2-4f9d-9a49-f71214747d03>
     userLayers:
       - id: 1
@@ -256,6 +259,21 @@
   ScriptTypes:
     "":
       {}
+- !<SceneObject/06d72960-af0f-4363-8ab5-43d6b68eec69>
+  PrefabRemaps:
+    []
+  Name: LEAF Plugin Bridge
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> ea1bf8e1-1400-4fa3-bed0-4e556a7b4e96
 - !<ScriptComponent/0847d2bb-a13f-4c4a-a404-169f67308f6f>
   PrefabRemaps:
     []
@@ -518,6 +536,34 @@
     - !<own> a6af4948-9adc-4052-ae22-db902dd2764e
   Components:
     []
+- !<ScriptComponent/162f9314-fe26-44e8-ad38-75bd38f4cba1>
+  PrefabRemaps:
+    []
+  Name: TriageCheckCards
+  Enabled: true
+  ScriptAsset: !<reference> 4886b0d8-f8b7-42fe-a739-e5da166d8e0c
+  ScriptInputsDefault:
+    proximityCm: true
+    leaveCm: true
+    cardDistanceCm: true
+    cardDropCm: true
+    cooldownSeconds: true
+    textColor: true
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      main: !<MappingBased.AssignableType_1> 8bd4efb7-c95c-4092-b69e-a9e2ddea71ef
+      cameraObject: !<reference.SceneObject> 00000000-0000-0065-0000-000000000064
+      proximityCm: !<float> 150.000000
+      leaveCm: !<float> 220.000000
+      cardDistanceCm: !<float> 80.000000
+      cardDropCm: !<float> 6.000000
+      cooldownSeconds: !<float> 1.000000
+      textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/181c239f-175e-4912-94fc-d37a2599b2d6>
   PrefabRemaps:
     []
@@ -533,6 +579,21 @@
     []
   Components:
     []
+- !<SceneObject/1c6bb66e-8e04-4a36-ab6f-04084fc8a45d>
+  PrefabRemaps:
+    []
+  Name: LeafIndex
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> 7d6f008f-7b6b-43df-ab4a-06816c2e443f
 - !<RenderMeshVisual/1f969daa-5809-4500-b314-98d91ccba131>
   PrefabRemaps:
     []
@@ -1018,6 +1079,21 @@
     - !<own> 8363e9a6-cd83-4889-abd4-6521e394f244
   Components:
     []
+- !<SceneObject/53730f6d-fa2c-44d4-ac29-8212e7ab798a>
+  PrefabRemaps:
+    []
+  Name: TriageCards
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> 162f9314-fe26-44e8-ad38-75bd38f4cba1
 - !<SceneObject/54130007-65c1-48d3-b9df-0866d8112e01>
   PrefabRemaps:
     []
@@ -1447,6 +1523,22 @@
     - !<own> 3b4f5057-b516-4d3b-9c8d-14c81af2f505
   Components:
     []
+- !<ScriptComponent/7d6f008f-7b6b-43df-ab4a-06816c2e443f>
+  PrefabRemaps:
+    []
+  Name: LeafIndex
+  Enabled: true
+  ScriptAsset: !<reference> 9e5e4f1b-cad8-46e7-96c8-a6d9bbb8a4ba
+  ScriptInputsDefault:
+    {}
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      {}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/7e2075c6-0882-4275-8365-16a03da73298>
   PrefabRemaps:
     []
@@ -2615,6 +2707,22 @@
     Fingers_length: 0.000000
     Thumb_inflate: 0.000000
     Thumb_length: 0.000000
+- !<ScriptComponent/ea1bf8e1-1400-4fa3-bed0-4e556a7b4e96>
+  PrefabRemaps:
+    []
+  Name: MessagingBridge
+  Enabled: true
+  ScriptAsset: !<reference> 9aa407db-2872-4afc-a162-cf7faf2a0f29
+  ScriptInputsDefault:
+    {}
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      {}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/f0394c5d-4c44-4c65-a77c-e1c7e05ca905>
   PrefabRemaps:
     []
