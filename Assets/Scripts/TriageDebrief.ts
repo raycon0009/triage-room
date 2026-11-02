@@ -457,7 +457,7 @@ export class TriageDebrief extends BaseScriptComponent {
     }
     this.entries = orderRows(raw) // anyone missed first; rows numbered 1..n
     const used = Math.min(this.clock.getElapsed(), this.clock.getDuration())
-    this.summary = summarize(this.entries, used)
+    this.summary = summarize(this.entries, used, this.main.getMode() === "learn" ? "Learn" : "")
 
     this.root = global.scene.createSceneObject("DebriefRoot")
     this.root.setParent(this.sceneObject)

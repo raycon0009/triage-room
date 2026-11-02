@@ -66,7 +66,7 @@ export class TriageFigureBuilder {
 
   constructor(private res: FigureResources) {}
 
-  private material(col: number[]): Material {
+  material(col: number[]): Material {
     const key = col.join(",")
     let m = this.matCache[key]
     if (!m) {

@@ -30,15 +30,16 @@ export function getTriageMain(): TriageMain {
 
 /** Fresh, not-started run with a random seed and the Start panel showing again. */
 export function resetToFreshStart(tm: TriageMain): RunState {
+  tm.setMode("drill")
   const state = tm.regenerate(0, "auto")
   tm.startUI.show()
   return state
 }
 
 /** Fixed-seed run that has been started (casualties visible). */
-export function startFixedRun(tm: TriageMain, seed: number, forceBlack: string): RunState {
+export function startFixedRun(tm: TriageMain, seed: number, forceBlack: string, mode: string = "drill"): RunState {
   tm.regenerate(seed, forceBlack)
-  tm.startRun()
+  tm.startRun(mode)
   return tm.getRunState()
 }
 

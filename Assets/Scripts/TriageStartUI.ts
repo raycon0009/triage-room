@@ -1,8 +1,9 @@
 /**
  * TriageStartUI.ts - passive view: the Start panel (title, pinchable Start button, drill footnote).
  * Owns: UIKit composition of the panel (BackPlate + FlexLayout + Button). Holds no run state.
- * Public API: onStart (Event, fires once per press), hide(), show(), pressStart() (programmatic press for tests).
- * Inspector: labels, button size. The button SceneObject is named "StartButton".
+ * Public API: onStart (Event<mode>, fires once per press: "learn" or "drill"), hide(), show(), pressStart(mode) (programmatic
+ * press for tests). Two buttons: "Learn" (START guide on the check card) and "Drill" (as before). Both start the same timed run.
+ * Inspector: labels, button size. The buttons are named "LearnButton" and "StartButton" (the Drill button).
  * Must not: start the run itself - TriageMain subscribes to onStart.
  */
 import { FlexLayout } from "SpectaclesUIKit.lspkg/Scripts/Components/Layout2D/Flex/FlexLayout"
@@ -38,8 +39,12 @@ export class TriageStartUI extends BaseScriptComponent {
   titleText: string = "Triage Room"
 
   @input
-  @hint("Label on the Start button")
-  startLabel: string = "Start"
+  @hint("Label on the Drill button (the plain drill, as before)")
+  drillLabel: string = "Drill"
+
+  @input
+  @hint("Label on the Learn button (the same drill with the START guide on the card)")
+  learnLabel: string = "Learn"
 
   @input
   @hint("Small line under the button")
@@ -61,8 +66,8 @@ export class TriageStartUI extends BaseScriptComponent {
   textColor: vec4
   @ui.group_end
 
-  private _onStart = new Event<void>()
-  get onStart(): PublicApi<void> {
+  private _onStart = new Event<string>()
+  get onStart(): PublicApi<string> {
     return this._onStart.publicApi()
   }
 
@@ -95,25 +100,30 @@ export class TriageStartUI extends BaseScriptComponent {
     const wText = Math.max(this.buttonWidthCm + 6, 22)
     this.addText(content, flex, "Title", this.titleText, "Headline2", wText, 3.2)
 
-    const btnSO = global.scene.createSceneObject("StartButton")
-    btnSO.setParent(content)
-    const btn = btnSO.createComponent(Button.getTypeName()) as Button
-    btn.size = new vec3(this.buttonWidthCm, this.buttonHeightCm, 1)
-    this.addButtonLabel(btnSO, this.startLabel, this.buttonWidthCm - 0.5)
-    const btnItem = btnSO.createComponent(FlexItem.getTypeName()) as FlexItem
-    btnItem.overrideWidth = this.buttonWidthCm
-    btnItem.overrideHeight = this.buttonHeightCm
-    btn.onTriggerUp.add(() => this.pressStart())
-    this.startButton = btn
+    this.addModeButton(content, "LearnButton", this.learnLabel, "learn")
+    this.startButton = this.addModeButton(content, "StartButton", this.drillLabel, "drill")
 
     this.addText(content, flex, "Footnote", this.footnoteText, "Caption", wText, 2.0)
   }
 
-  /** Called by the Start button; tests may also call it directly. Fires onStart once. */
-  pressStart(): void {
+  private addModeButton(content: SceneObject, name: string, label: string, mode: string): Button {
+    const btnSO = global.scene.createSceneObject(name)
+    btnSO.setParent(content)
+    const btn = btnSO.createComponent(Button.getTypeName()) as Button
+    btn.size = new vec3(this.buttonWidthCm, this.buttonHeightCm, 1)
+    this.addButtonLabel(btnSO, label, this.buttonWidthCm - 0.5)
+    const btnItem = btnSO.createComponent(FlexItem.getTypeName()) as FlexItem
+    btnItem.overrideWidth = this.buttonWidthCm
+    btnItem.overrideHeight = this.buttonHeightCm
+    btn.onTriggerUp.add(() => this.pressStart(mode))
+    return btn
+  }
+
+  /** Called by the Learn / Drill buttons; tests may also call it directly. Fires onStart once with the mode. */
+  pressStart(mode: string = "drill"): void {
     if (this.pressed) return
     this.pressed = true
-    this._onStart.invoke()
+    this._onStart.invoke(mode)
   }
 
   hide(): void {

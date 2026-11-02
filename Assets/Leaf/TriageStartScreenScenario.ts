@@ -35,10 +35,11 @@ export class TriageStartScreenScenario extends Scenario {
       byText[t.text] = t
     }
     expect(byText["Triage Room"] === undefined).toBe(false)
-    expect(byText["Start"] === undefined).toBe(false)
+    expect(byText["Drill"] === undefined).toBe(false)
+    expect(byText["Learn"] === undefined).toBe(false)
     expect(byText["Training drill, not certification"] === undefined).toBe(false)
     // light text, and the small line is not tiny (it was size 38)
-    for (const s of ["Triage Room", "Start", "Training drill, not certification"]) {
+    for (const s of ["Triage Room", "Learn", "Drill", "Training drill, not certification"]) {
       const c = byText[s].textFill.color
       expect(c.r > 0.9 && c.g > 0.9 && c.b > 0.9).toBe(true)
       expect(byText[s].size).toBeGreaterThan(45)

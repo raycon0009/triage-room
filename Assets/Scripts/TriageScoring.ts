@@ -150,12 +150,12 @@ export function orderRows(entries: DebriefEntry[]): DebriefEntry[] {
   return missed.concat(rest).map((e, i) => ({ ...e, row: i + 1 }))
 }
 
-export function summarize(entries: DebriefEntry[], timeUsedSeconds: number): DebriefSummary {
+export function summarize(entries: DebriefEntry[], timeUsedSeconds: number, modeLabel: string = ""): DebriefSummary {
   const correct = entries.filter((e) => e.status === "correct").length
   const wrong = entries.filter((e) => e.status === "wrong").length
   const missed = entries.filter((e) => e.status === "missed").length
   const extra = entries.reduce((n, e) => n + e.extraChecks, 0)
-  const a = correct + " of " + entries.length + " correct · " + missed + " missed"
+  const a = (modeLabel ? modeLabel + " · " : "") + correct + " of " + entries.length + " correct · " + missed + " missed"
   const b = extra + (extra === 1 ? " extra check" : " extra checks") + " · " + formatClock(timeUsedSeconds) + " used"
   return { total: entries.length, correct: correct, wrong: wrong, missed: missed, totalExtraChecks: extra, timeUsedSeconds: timeUsedSeconds, text: a + " · " + b, lines: [a, b] }
 }

@@ -124,3 +124,48 @@ export const TAG_WORD: { [k in StartTag]: string } = {
   Red: "RED",
   Black: "EXPECTANT",
 }
+
+// ------------------------------------------------------------------ Learn mode: the START step chips
+
+export type ChipState = "done" | "current" | "decided" | "dim"
+
+export interface LearnChip {
+  /** short label for the chip ("Walks?", "Breath?", "Rate", "Pulse", "Obeys?"; "Airway" while the airway is pending) */
+  label: string
+  state: ChipState
+  /** only for state "decided": the tag this step gave */
+  tag: StartTag | null
+}
+
+/** Short chip labels, in START order (the card is narrow, so the labels are shortened). */
+export const CHIP_LABELS: string[] = ["Walks?", "Breath?", "Rate", "Pulse", "Obeys?"]
+/** START step number (0-5, see top of file) -> chip index (breathing and breathing-after-airway share one chip). */
+export const STEP_CHIP: number[] = [0, 1, 1, 2, 3, 4]
+
+/**
+ * The five chips for Learn mode. Passed steps are "done", the step the START rules need next is "current", the step
+ * that decided the tag shows the tag ("decided"), and steps not reached stay "dim".
+ */
+export function learnChips(f: Findings, checks: CheckId[]): LearnChip[] {
+  const res = evaluateStart(f, checks)
+  const done: { [k in CheckId]?: boolean } = {}
+  for (const c of checks) done[c] = true
+  const chips: LearnChip[] = CHIP_LABELS.map((l) => ({ label: l, state: "dim" as ChipState, tag: null }))
+  if (res.decided && res.decidingStep !== null && res.tag) {
+    const idx = STEP_CHIP[res.decidingStep]
+    for (let i = 0; i < idx; i++) chips[i].state = "done"
+    chips[idx].state = "decided"
+    chips[idx].tag = res.tag
+    return chips
+  }
+  let cur = 1
+  if (!done.breathing) cur = 1
+  else if (f.breathing === false) cur = 1 // airway pending
+  else if (!done.rate) cur = 2
+  else if (!done.pulse) cur = 3
+  else cur = 4
+  for (let i = 0; i < cur; i++) chips[i].state = "done"
+  chips[cur].state = "current"
+  if (cur === 1 && done.breathing && f.breathing === false) chips[1].label = "Airway"
+  return chips
+}

@@ -6,14 +6,14 @@ A timed mass-casualty triage drill for Snap Spectacles, built in Lens Studio. It
 
 ## How a run works
 
-1. Press Start. You get a short scenario line and a 3-minute timer.
+1. Press **Learn** or **Drill**. Both start the same timed run (a short scenario line and a 3-minute timer). Learn adds a START guide: a row of five step chips (Walks? · Breath? · Rate · Pulse · Obeys?) across the top of the check card. The current step is highlighted, the step that decides the tag shows the tag colour and word, and steps not reached stay dim. Drill is the plain drill with no guide. The debrief notes the mode ("Learn · 3 of 4 correct · ..."), and Restart keeps the mode.
 2. Walk to a casualty. A check card opens when you are close.
 3. Run the START checks with the buttons: breathing, rate, pulse / refill, follows commands. Use Open airway if they are not breathing.
 4. Tag them: Green, Yellow, Red or Expectant. Call out to the walking casualty to send them to the green zone.
 5. Listen for the groan behind you, and find that casualty before time runs out.
 6. When all are tagged or time is up, a debrief shows each casualty: your tag, the correct tag, the rule that decides it, time taken, extra checks, and anyone you never reached. Restart gives a new layout.
 
-Poses vary between runs, so you can't tag by appearance � you have to check.
+Poses vary between runs, so you can't tag by appearance — you have to check.
 
 ## Open it
 
@@ -30,6 +30,8 @@ Select the TriageMain object and tick **Use demo seed**. It gives a fixed layout
 - Plain Node (22.18+):
   - `node devpost/tests/start-engine.test.mjs`
   - `node devpost/tests/scoring.test.mjs`
+  - `node devpost/tests/figures.test.mjs`
+  - `node devpost/tests/learn-chips.test.mjs`
 
 ## Honest limits
 

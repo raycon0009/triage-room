@@ -19,7 +19,7 @@ import Event, { PublicApi } from "SpectaclesInteractionKit.lspkg/Utils/Event"
 import { TriageMain } from "./TriageMain"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
 import { CASUALTY_TABLE, CasualtyId } from "./TriageData"
-import { CHECK_LABEL, CheckId, Findings, StartTag, TAG_WORD, checkResultText, evaluateStart, findingsFromDef } from "./TriageStartEngine"
+import { CHECK_LABEL, CHIP_LABELS, CheckId, Findings, LearnChip, StartTag, TAG_WORD, checkResultText, evaluateStart, findingsFromDef, learnChips } from "./TriageStartEngine"
 
 export interface CasualtyRecord {
   id: string
@@ -64,6 +64,29 @@ const TAG_COLOUR: { [k in StartTag]: vec4 } = {
   Yellow: new vec4(1, 0.92, 0.35, 1),
   Green: new vec4(0.45, 1, 0.55, 1),
   Black: new vec4(1, 1, 1, 1),
+}
+
+// Learn mode: one row of five step chips across the top of the card (the card keeps its size)
+const CHIP_W = 4.4
+const CHIP_GAP = 0.3
+const CHIP_H = 1.7
+const CHIP_TEXT = 30
+const CHIP_TEXT_DECIDED = 24
+const CHIP_CURRENT = [0.55, 0.95, 1.0]
+const CHIP_DONE_TEXT = new vec4(0.82, 0.9, 1, 1)
+const CHIP_DIM_TEXT = new vec4(0.5, 0.56, 0.66, 1)
+const CHIP_CURRENT_TEXT = new vec4(1, 1, 1, 1)
+const CHIP_TAG_BAR: { [k in StartTag]: number[] } = {
+  Red: [1, 0.45, 0.45],
+  Yellow: [1, 0.92, 0.35],
+  Green: [0.45, 1, 0.55],
+  Black: [1, 1, 1],
+}
+
+interface ChipUI {
+  text: Text
+  bar: SceneObject
+  barMesh: RenderMeshVisual
 }
 
 interface DotUI {
@@ -142,6 +165,12 @@ export class TriageCheckCards extends BaseScriptComponent {
   private tagPanel!: SceneObject
   private titleText!: Text
   private statusText!: Text
+  private cardFlex: FlexLayout | null = null
+  private titleItem: FlexItem | null = null
+  private statusItem: FlexItem | null = null
+  private chipRow: SceneObject | null = null
+  private chips: ChipUI[] = []
+  private learnShown: boolean | null = null
   private checkButtons: { [slot: string]: { button: Button; label: Text; obj: SceneObject } } = {}
   private tagButtons: { [tag: string]: { button: Button; label: Text; obj: SceneObject } } = {}
 
@@ -687,6 +716,8 @@ export class TriageCheckCards extends BaseScriptComponent {
         slot.label.textFill.color = this.textColor
       }
     }
+    this.applyMode()
+    if (this.learnShown) this.updateChips(f, rec.checks)
     const res = evaluateStart(f, rec.checks)
     this.tagPanel.enabled = res.decided
   }
@@ -790,9 +821,12 @@ export class TriageCheckCards extends BaseScriptComponent {
     flex.paddingRight = 1.0
     flex.width = CHECK_W
     flex.height = CHECK_H
+    this.cardFlex = flex
 
     this.titleText = this.addText(content, "Title", "", TYPE_TITLE, CHECK_W - 2, 2.4)
     this.statusText = this.addText(content, "Status", "", TYPE_STATUS, CHECK_W - 2, 1.8)
+    this.titleItem = this.titleText.sceneObject.getComponent(FlexItem.getTypeName()) as FlexItem
+    this.statusItem = this.statusText.sceneObject.getComponent(FlexItem.getTypeName()) as FlexItem
     const slots = ["breathing", "second", "pulse", "commands"]
     const labels = ["Breathing?", "Breathing rate", "Pulse / refill", "Follows commands?"]
     const objNames = ["CardBtn_breathing", "CardBtn_second", "CardBtn_pulse", "CardBtn_commands"]
@@ -810,6 +844,9 @@ export class TriageCheckCards extends BaseScriptComponent {
       btn.onTriggerUp.add(() => this.pressCheck(check))
       this.checkButtons[slots[i]] = { button: btn, label: label, obj: so }
     }
+
+    // --- Learn mode chip row (built once; shown only in Learn mode)
+    this.buildChipRow()
 
     // --- tag panel (below the check panel; only enabled once a step has decided the tag)
     this.tagPanel = global.scene.createSceneObject("TagPanel")
@@ -859,6 +896,112 @@ export class TriageCheckCards extends BaseScriptComponent {
     if (this.builder) {
       this.line = this.builder.createPart(this.sceneObject, "CardConnector", "box", [0, 0, 0], [0.5, 0.5, 0.5], [0.55, 0.95, 1.0])
       this.line.enabled = false
+    }
+  }
+
+  private buildChipRow(): void {
+    const row = global.scene.createSceneObject("LearnChips")
+    row.setParent(this.checkPanel)
+    row.getTransform().setLocalPosition(new vec3(0, CHECK_H / 2 - 0.7 - CHIP_H / 2, CONTENT_Z))
+    this.chipRow = row
+    this.chips = []
+    for (let i = 0; i < CHIP_LABELS.length; i++) {
+      const x = (i - 2) * (CHIP_W + CHIP_GAP)
+      const so = global.scene.createSceneObject("Chip_" + i)
+      so.setParent(row)
+      so.getTransform().setLocalPosition(new vec3(x, 0, 0.05))
+      const t = so.createComponent("Component.Text") as Text
+      t.text = CHIP_LABELS[i]
+      t.depthTest = true
+      t.size = CHIP_TEXT
+      t.textFill.color = CHIP_DIM_TEXT
+      t.horizontalAlignment = HorizontalAlignment.Center
+      t.verticalAlignment = VerticalAlignment.Center
+      t.horizontalOverflow = HorizontalOverflow.Overflow
+      t.verticalOverflow = VerticalOverflow.Overflow
+      t.layoutRect = Rect.create(-CHIP_W / 2, CHIP_W / 2, -CHIP_H / 2, CHIP_H / 2)
+      let bar: SceneObject
+      if (this.builder) {
+        bar = this.builder.createPart(row, "ChipBar_" + i, "box", [x, -CHIP_H / 2 - 0.05, 0], [CHIP_W - 0.2, 0.2, 0.2], CHIP_CURRENT)
+      } else {
+        bar = global.scene.createSceneObject("ChipBar_" + i)
+        bar.setParent(row)
+      }
+      bar.enabled = false
+      this.chips.push({ text: t, bar: bar, barMesh: bar.getComponent("Component.RenderMeshVisual") as RenderMeshVisual })
+    }
+    row.enabled = false
+  }
+
+  /** Learn mode shows the chip row and tightens the card's spacing so everything still fits the same card. */
+  private applyMode(): void {
+    const learn = this.main.getMode() === "learn"
+    if (this.learnShown === learn) return
+    this.learnShown = learn
+    if (this.chipRow) this.chipRow.enabled = learn
+    if (this.cardFlex && this.titleItem && this.statusItem) {
+      this.cardFlex.rowGap = learn ? 0.3 : 0.5
+      this.cardFlex.paddingTop = learn ? 0.7 : 1.0
+      this.cardFlex.paddingBottom = learn ? 0.7 : 1.0
+      this.titleItem.overrideHeight = learn ? 2.2 : 2.4
+      this.statusItem.overrideHeight = learn ? 1.7 : 1.8
+      this.titleItem.marginTop = learn ? CHIP_H + 0.3 : 0
+    }
+  }
+
+  private updateChips(f: Findings, checks: CheckId[]): void {
+    const data = learnChips(f, checks)
+    for (let i = 0; i < this.chips.length; i++) {
+      const c = data[i]
+      const ui = this.chips[i]
+      ui.text.text = c.state === "decided" && c.tag ? TAG_WORD[c.tag] : c.label
+      ui.bar.enabled = c.state === "current" || c.state === "decided"
+      if (c.state === "decided" && c.tag) {
+        ui.text.size = CHIP_TEXT_DECIDED
+        ui.text.textFill.color = TAG_COLOUR[c.tag]
+        if (this.builder) ui.barMesh.mainMaterial = this.builder.material(CHIP_TAG_BAR[c.tag])
+      } else {
+        ui.text.size = CHIP_TEXT
+        ui.text.textFill.color = c.state === "current" ? CHIP_CURRENT_TEXT : c.state === "done" ? CHIP_DONE_TEXT : CHIP_DIM_TEXT
+        if (this.builder && c.state === "current") ui.barMesh.mainMaterial = this.builder.material(CHIP_CURRENT)
+      }
+    }
+  }
+
+  /** Learn mode (tests): what the chip row shows right now. visible = the row is shown on the card. */
+  getLearnChips(): { visible: boolean; rowY: number; chips: { label: string; state: string; tag: string | null; textColor: vec4; barOn: boolean; localX: number; widthCm: number }[] } {
+    const id = this.openId
+    let data: LearnChip[] = []
+    if (id) data = learnChips(this.findings(id), this.records[id].checks)
+    return {
+      visible: !!this.chipRow && this.chipRow.enabled && this.cardRoot.enabled,
+      rowY: this.chipRow ? this.chipRow.getTransform().getLocalPosition().y : 0,
+      chips: this.chips.map((ui, i) => ({
+        label: ui.text.text,
+        state: data[i] ? data[i].state : "dim",
+        tag: data[i] && data[i].tag ? (data[i].tag as string) : null,
+        textColor: ui.text.textFill.color,
+        barOn: ui.bar.enabled,
+        localX: ui.text.sceneObject.getTransform().getLocalPosition().x,
+        widthCm: CHIP_W,
+      })),
+    }
+  }
+
+  /** Card layout (tests): local y of the lowest check button's bottom edge and of the title's top, and the card half sizes. */
+  getCardFit(): { lowestButtonBottom: number; titleTop: number; halfHeight: number; halfWidth: number } {
+    let low = 1e9
+    const content = this.titleText.sceneObject.getParent()
+    const cy = content ? content.getTransform().getLocalPosition().y : 0
+    for (const k in this.checkButtons) {
+      const y = this.checkButtons[k].obj.getTransform().getLocalPosition().y - CHECK_BTN_H / 2
+      if (y < low) low = y
+    }
+    return {
+      lowestButtonBottom: low + cy,
+      titleTop: this.titleText.sceneObject.getTransform().getLocalPosition().y + cy + 1.2,
+      halfHeight: CHECK_H / 2,
+      halfWidth: CHECK_W / 2,
     }
   }
 

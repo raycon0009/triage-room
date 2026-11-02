@@ -347,3 +347,30 @@ Taken with a temporary demo script that tagged X and C (script and scene object 
 
 ### Capture
 `devpost/captures/step3-seed21-layout.jpg`: non-demo seed 21, from the start position, pitched down 28 degrees (seated figure, two lying figures cropped by the narrow view). Taken with a temporary LEAF scenario (deleted).
+
+## Learn mode with START guide; Drill mode unchanged (3 Nov 2026, overnight run)
+
+**Status: gate passed.** `start-engine.test.mjs` 12/12, `scoring.test.mjs` 23/23, `figures.test.mjs` 70/70, new `learn-chips.test.mjs` 15/15; LEAF 19/19 (18 + new `triage-learn-mode`; `triage-start-screen` updated for the new buttons), each run on its own on the final code.
+
+### What changed
+- **Start screen** (`TriageStartUI.ts`): two buttons, "Learn" (object `LearnButton`) and "Drill" (object `StartButton`, so the old tests still press it). Both start the same timed run; `onStart` now carries the mode. The label input is `drillLabel` (the scene's old `startLabel: Start` would have overridden a default).
+- **Mode** (`TriageMain.ts`): `getMode()` / `setMode()`; `startRun(mode?)`. Restart keeps the mode. Default Drill.
+- **Chips** (`TriageStartEngine.ts` `learnChips`, pure and tested in Node; `TriageCheckCards.ts`): five chips across the top of the card: Walks? · Breath? · Rate · Pulse · Obeys? (shortened so the card does not widen). Current step = bright text + a cyan bar; passed steps light blue-white; steps not reached dim grey; the deciding step shows the tag word in the tag colour with a bar in that colour (EXPECTANT is white, never black). While the airway is pending the Breath chip reads "Airway".
+- **Same card size.** In Learn the card's spacing is tightened (row gap 0.3, padding 0.7, title and status rows a little shorter, title pushed down by the chip row) so everything fits the same 25 x 26.5 cm card. Drill restores the old values; the test checks the Drill layout is identical before and after a Learn run.
+- **Debrief** (`TriageScoring.summarize(…, modeLabel)`): Learn's first summary line is "Learn · 1 of 4 correct · 3 missed". Drill's summary is exactly as before.
+- `TriageFigureBuilder.material()` made public (the chips swap bar colours).
+
+### Decisions I made (change if you disagree)
+- The mode label appears in the debrief for Learn only; Drill's debrief is deliberately unchanged ("Drill mode is unchanged").
+- Chip labels are "Walks?", "Breath?", "Rate", "Pulse", "Obeys?" (spec: shorten rather than widen).
+- Start screen buttons are stacked, Learn above Drill, same size as the old Start button.
+
+### Failed or odd on the way
+- `triage-learn-mode` failed once: my test ran a debrief with all four casualties missed, and that panel is 17.15 degrees tall from the start position against the 17 degree limit. **This is a pre-existing limit** (the existing tests only ever have 0 or 3 missed): in a real run where you never reach anyone, the debrief panel is about 0.15 degrees over the limit. Not fixed (out of scope); the test now tags X first like the existing time-up test. Passed after.
+
+### Not proven / limits
+- Chip text is small (about two thirds of the button text). Readable in the preview capture; on real glasses: feel unproven.
+- Mouse presses on the Learn / Drill buttons in Interactive Preview: only LEAF presses are proven (see the earlier note on mouse clicks).
+
+### Capture
+`devpost/captures/step4-learn-card.jpg`: Learn card for the slumped casualty after Breathing and Rate: Walks?, Breath?, Rate done, Pulse highlighted with a bar, Obeys? dim. Taken with a temporary LEAF scenario (deleted).

@@ -154,7 +154,7 @@ export class TriageMain extends BaseScriptComponent {
     })
     this.buildRoomShell()
     this.regenerate(this.configuredSeed(), this.configuredForceBlack())
-    this.startUI.onStart.add(() => this.startRun())
+    this.startUI.onStart.add((mode) => this.startRun(mode))
   }
 
   /** The seed the inspector asks for: the demo seed, or the Seed field (0 = random). */
@@ -173,6 +173,16 @@ export class TriageMain extends BaseScriptComponent {
   }
 
   private restartCount = 0
+  private runMode: "learn" | "drill" = "drill"
+
+  /** "learn" (START guide chips on the card) or "drill" (as before). A restart keeps the mode. */
+  getMode(): "learn" | "drill" {
+    return this.runMode
+  }
+
+  setMode(mode: string): void {
+    this.runMode = mode === "learn" ? "learn" : "drill"
+  }
 
   /**
    * Restart (build step 5): clear everything of the last run (casualties with their dots, bands and groan source are
@@ -214,8 +224,9 @@ export class TriageMain extends BaseScriptComponent {
   }
 
   /** Press-Start behaviour (also callable by tests). */
-  startRun(): void {
+  startRun(mode?: string): void {
     if (this.started) return
+    if (mode) this.setMode(mode)
     this.started = true
     this.casualtiesRoot.enabled = true
     this.startUI.hide()
