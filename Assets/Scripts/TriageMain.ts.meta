@@ -42,6 +42,7 @@
     sphereMesh: false
     sphereUnitCm: false
     startUI: false
+    useDemoSeed: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -60,6 +61,7 @@
       figureMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
       seed: !<float> 0.000000
       forceBlack: auto
+      useDemoSeed: false
       scenarioText: "A gas cylinder burst in the college canteen. The fire is out. You're the first trained volunteer inside — four people need you."
       scenarioHoldSeconds: !<float> 6.000000
       scenarioFadeSeconds: !<float> 2.000000
@@ -86,6 +88,7 @@
     - '// @ui {"widget":"group_start", "label":"Settings"}'
     - '// @input float seed {"hint":"Layout seed. 0 or negative = random each run; a positive number gives the same layout every time"}'
     - '// @input string forceBlack = "auto" {"hint":"Black (Expectant) casualty: auto = about 1 run in 3. Only honoured when a fixed seed is set", "widget":"combobox", "values":[{"label":"auto", "value":"auto"}, {"label":"on", "value":"on"}, {"label":"off", "value":"off"}]}'
+    - '// @input bool useDemoSeed {"hint":"Demo seed for the video: Black case ON, a walker (W1), a breathing non-walker (D, groaning) behind you to the right, C at the wall, X front-left. Overrides Seed and Black. Layout is documented in devpost/build-log.md"}'
     - "// @input string scenarioText = \"A gas cylinder burst in the college canteen. The fire is out. You're the first trained volunteer inside — four people need you.\" {\"hint\":\"Scenario line shown after Start\"}"
     - '// @input float scenarioHoldSeconds = 6 {"hint":"Seconds the scenario line stays before fading", "widget":"slider", "min":1, "max":15, "step":0.5}'
     - '// @input float scenarioFadeSeconds = 2 {"hint":"Seconds the scenario line takes to fade", "widget":"slider", "min":0.5, "max":5, "step":0.5}'

@@ -7,12 +7,12 @@
     - !<own> b039e6ba-cb6f-4756-8390-04d1e0ebd475
     - !<own> aff7db24-e2cf-438c-bc5e-0be560e671d3
     - !<own> 1c6bb66e-8e04-4a36-ab6f-04084fc8a45d
-    - !<own> 06d72960-af0f-4363-8ab5-43d6b68eec69
     - !<own> 53730f6d-fa2c-44d4-ac29-8212e7ab798a
     - !<own> e9a17ecb-450d-403b-93c8-33d669cb347b
     - !<own> 858fbd64-1d4c-4128-83fb-596d9aba36b1
     - !<own> 00acae9e-ad5e-4591-a1f2-81c001c55b16
     - !<own> 80c5b3db-0b8e-48a6-880a-6978f10fc3f1
+    - !<own> 8ab89577-b0ff-4759-9dbd-463a027dc387
   layers: !<Layers/267ee9a7-aff2-4f9d-9a49-f71214747d03>
     userLayers:
       - id: 1
@@ -279,21 +279,6 @@
   ScriptTypes:
     "":
       {}
-- !<SceneObject/06d72960-af0f-4363-8ab5-43d6b68eec69>
-  PrefabRemaps:
-    []
-  Name: LEAF Plugin Bridge
-  Enabled: true
-  Layers: 1
-  LocalTransform: !<TransformEntity>
-    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
-    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
-    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
-    HasSegmentScaleCompensation: false
-  Children:
-    []
-  Components:
-    - !<own> ea1bf8e1-1400-4fa3-bed0-4e556a7b4e96
 - !<ScriptComponent/0847d2bb-a13f-4c4a-a404-169f67308f6f>
   PrefabRemaps:
     []
@@ -872,6 +857,22 @@
     - !<own> a7da4af4-3d84-4acd-a31e-920a56b4c5c8
   Components:
     []
+- !<ScriptComponent/3092f559-4342-4422-b16f-9adf1e16a5c4>
+  PrefabRemaps:
+    []
+  Name: MessagingBridge
+  Enabled: true
+  ScriptAsset: !<reference> 9aa407db-2872-4afc-a162-cf7faf2a0f29
+  ScriptInputsDefault:
+    {}
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      {}
+  ScriptTypes:
+    "":
+      {}
 - !<RenderMeshVisual/335c5f8b-2917-49e8-8af5-220696e9bc09>
   PrefabRemaps:
     []
@@ -1795,6 +1796,21 @@
     - !<own> 1fc7fa3e-6910-4741-b8a7-1b6660a39a9d
   Components:
     - !<own> 28e05826-1521-46fa-a54c-80f2957ec80c
+- !<SceneObject/8ab89577-b0ff-4759-9dbd-463a027dc387>
+  PrefabRemaps:
+    []
+  Name: LEAF Plugin Bridge
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> 3092f559-4342-4422-b16f-9adf1e16a5c4
 - !<SceneObject/8b877074-7eee-4be1-b669-714f8d5a1da3>
   PrefabRemaps:
     []
@@ -1819,6 +1835,7 @@
   ScriptInputsDefault:
     seed: true
     forceBlack: true
+    useDemoSeed: true
     scenarioText: true
     scenarioHoldSeconds: true
     scenarioFadeSeconds: true
@@ -1837,6 +1854,7 @@
       figureMaterial: !<reference.Material> 93f1578e-d348-493f-b228-ccaa1d6d079a
       seed: !<float> 0.000000
       forceBlack: auto
+      useDemoSeed: false
       scenarioText: "A gas cylinder burst in the college canteen. The fire is out. You're the first trained volunteer inside — four people need you."
       scenarioHoldSeconds: !<float> 6.000000
       scenarioFadeSeconds: !<float> 2.000000
@@ -2903,22 +2921,6 @@
     - !<own> 94a30f70-1792-492f-a2ea-14be22e15f2c
   Components:
     - !<own> 3d70b4d1-8efe-4449-abe8-5e6f56484d24
-- !<ScriptComponent/ea1bf8e1-1400-4fa3-bed0-4e556a7b4e96>
-  PrefabRemaps:
-    []
-  Name: MessagingBridge
-  Enabled: true
-  ScriptAsset: !<reference> 9aa407db-2872-4afc-a162-cf7faf2a0f29
-  ScriptInputsDefault:
-    {}
-  ScriptTypesDefault:
-    {}
-  ScriptInputs:
-    "":
-      {}
-  ScriptTypes:
-    "":
-      {}
 - !<SceneObject/f0394c5d-4c44-4c65-a77c-e1c7e05ca905>
   PrefabRemaps:
     []
@@ -2943,9 +2945,9 @@
   ScriptInputsDefault:
     mapForwardCm: true
     mapScale: true
-    labelHeightCm: true
+    panelDropCm: true
     endGraceSeconds: true
-    timesUpSeconds: true
+    flashHz: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
@@ -2957,9 +2959,10 @@
       cameraObject: !<reference.SceneObject> 00000000-0000-0065-0000-000000000064
       mapForwardCm: !<float> 120.000000
       mapScale: 0.160000
-      labelHeightCm: !<float> 44.000000
+      panelDropCm: !<float> 3.000000
       endGraceSeconds: 1.200000
-      timesUpSeconds: !<float> 3.000000
+      timesUpSeconds: !<float> 2.000000
+      flashHz: 1.800000
   ScriptTypes:
     "":
       {}
