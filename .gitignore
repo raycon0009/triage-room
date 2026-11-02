@@ -1,0 +1,40 @@
+# BEGIN Lens Studio managed Agents-Docs block
+.mcp.json
+.cursor/mcp.json
+.vscode/mcp.json
+.codex/config.toml
+.claude/settings.local.json
+# END Lens Studio managed Agents-Docs block
+
+# Added by Lens Studio (LEAF plugin)
+leaf_plugin_settings.json
+
+# --- Triage Room project rules ---
+
+# Lens Studio generated / per-user / local state
+Cache/
+Workspaces/
+PluginsUserPreferences/
+Support/
+.virtual-scene.json
+*.esproj.*.lock
+
+# Secrets and keys (never commit)
+*.pem
+*.key
+.env
+.env.*
+*.env
+
+# Agent tooling copies and leftovers (not needed to open the project or run the tests)
+.claude/skills/
+agent/
+skills-lock.json
+# Plugins/ here is a leftover from the removed Icons package (IconAtlas), not part of the project
+Plugins/
+
+# Backups and OS junk
+backup-*/
+.DS_Store
+Thumbs.db
+node_modules/

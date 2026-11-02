@@ -1,0 +1,56 @@
+- !<AssetImportMetadata/c62079b2-a8a7-4cc4-a3d7-221bfe085d33>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> a3394729-2560-468c-b638-83199202b8ad
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> a3394729-2560-468c-b638-83199202b8ad
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> 16de22d6-0e8e-4ac1-af0a-9ac0a872b9af
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/16de22d6-0e8e-4ac1-af0a-9ac0a872b9af>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  VersionPrerelease: ""
+  UpdateOrder: 0
+  ComponentUid: 219b4c08-9126-4657-8cae-db80c4e5e77a
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    label: false
+    textColor: false
+    textSize: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - label: MINOR
+      textSize: !<float> 380.000000
+      textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageZoneUI - MINOR floor label</span>"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"group_start", "label":"Settings"}'
+    - '// @input string label = "MINOR" {"hint":"Word shown on the green zone"}'
+    - '// @input float textSize = 380 {"hint":"Text size (em-square cm = size / 43.9)", "widget":"slider", "min":100, "max":900, "step":10}'
+    - '// @input vec4 textColor = "{1,1,1,1}" {"hint":"Label colour (white reads on the green disc; never black)", "widget":"color"}'
+    - '// @ui {"widget":"group_end"}'

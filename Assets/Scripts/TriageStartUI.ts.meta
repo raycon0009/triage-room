@@ -1,0 +1,65 @@
+- !<AssetImportMetadata/41b3a5bd-e872-4f16-ae5b-a9f8e1498dc6>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> 4a21e1fd-959a-42ac-9942-a4e8618496ac
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> 4a21e1fd-959a-42ac-9942-a4e8618496ac
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> 2a418ca7-359e-4c4f-84c9-8d22da36dc5d
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/2a418ca7-359e-4c4f-84c9-8d22da36dc5d>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  VersionPrerelease: ""
+  UpdateOrder: 0
+  ComponentUid: 169fda95-1d72-4bc9-85bc-19a8ebf8a9da
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    buttonHeightCm: false
+    buttonWidthCm: false
+    footnoteText: false
+    startLabel: false
+    textColor: false
+    titleText: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - titleText: Triage Room
+      startLabel: Start
+      footnoteText: "Training drill, not certification"
+      buttonWidthCm: !<float> 14.000000
+      buttonHeightCm: 5.500000
+      textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageStartUI - Start panel (passive view)</span>"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"group_start", "label":"Settings"}'
+    - '// @input string titleText = "Triage Room" {"hint":"Panel title"}'
+    - '// @input string startLabel = "Start" {"hint":"Label on the Start button"}'
+    - '// @input string footnoteText = "Training drill, not certification" {"hint":"Small line under the button"}'
+    - '// @input float buttonWidthCm = 14 {"hint":"Start button width (cm)", "widget":"slider", "min":8, "max":24, "step":0.5}'
+    - '// @input float buttonHeightCm = 5.5 {"hint":"Start button height (cm)", "widget":"slider", "min":3, "max":10, "step":0.5}'
+    - '// @input vec4 textColor = "{1,1,1,1}" {"hint":"Colour of the title and footnote text", "widget":"color"}'
+    - '// @ui {"widget":"group_end"}'

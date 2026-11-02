@@ -1,0 +1,94 @@
+- !<AssetImportMetadata/3da388ff-20f1-4a84-a602-dfab51a77a44>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> b12145a5-edd7-48bf-8a21-8a5f48657724
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> b12145a5-edd7-48bf-8a21-8a5f48657724
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> f4656091-9eb6-4624-96c2-e8bea89a2e67
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/f4656091-9eb6-4624-96c2-e8bea89a2e67>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  VersionPrerelease: ""
+  UpdateOrder: 0
+  ComponentUid: fdf89342-8fad-48dd-8ba6-de5a21bde933
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    boxMesh: false
+    boxUnitCm: false
+    casualtiesRoot: false
+    figureMaterial: false
+    forceBlack: false
+    roomShellRoot: false
+    scenarioFadeSeconds: false
+    scenarioHoldSeconds: false
+    scenarioText: false
+    scenarioUI: false
+    seed: false
+    sphereMesh: false
+    sphereUnitCm: false
+    startUI: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - startUI: !<MappingBased.AssignableType_1> 00000000-0000-0000-0000-000000000000
+      scenarioUI: !<MappingBased.AssignableType_2> 00000000-0000-0000-0000-000000000000
+      casualtiesRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      roomShellRoot: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
+      boxMesh: !<reference.RenderMesh> 00000000-0000-0000-0000-000000000000
+      sphereMesh: !<reference.RenderMesh> 00000000-0000-0000-0000-000000000000
+      figureMaterial: !<reference.Material> 00000000-0000-0000-0000-000000000000
+      seed: !<float> 0.000000
+      forceBlack: auto
+      scenarioText: "A gas cylinder burst in the college canteen. The fire is out. You're the first trained volunteer inside — four people need you."
+      scenarioHoldSeconds: !<float> 6.000000
+      scenarioFadeSeconds: !<float> 2.000000
+      boxUnitCm: !<float> 1.000000
+      sphereUnitCm: !<float> 1.000000
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageMain - room, casualties, Start (step 1)</span>"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">References</span>"}'
+    - '// @ui {"widget":"group_start", "label":"References"}'
+    - '// @input AssignableType_1 startUI {"hint":"Start panel UI module"}'
+    - '// @input AssignableType_2 scenarioUI {"hint":"Scenario line UI module"}'
+    - '// @input SceneObject casualtiesRoot {"hint":"Empty object that holds the runtime-built casualties"}'
+    - '// @input SceneObject roomShellRoot {"hint":"Empty object that holds the runtime-built room shell (outline + wall)"}'
+    - '// @input Asset.RenderMesh boxMesh {"hint":"Box RenderMesh primitive"}'
+    - '// @input Asset.RenderMesh sphereMesh {"hint":"Sphere RenderMesh primitive"}'
+    - '// @input Asset.Material figureMaterial {"hint":"Unlit material used (cloned and tinted) for figures and room shell"}'
+    - '// @ui {"widget":"group_end"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">Settings</span>"}'
+    - '// @ui {"widget":"group_start", "label":"Settings"}'
+    - '// @input float seed {"hint":"Layout seed. 0 or negative = random each run; a positive number gives the same layout every time"}'
+    - '// @input string forceBlack = "auto" {"hint":"Black (Expectant) casualty: auto = about 1 run in 3. Only honoured when a fixed seed is set", "widget":"combobox", "values":[{"label":"auto", "value":"auto"}, {"label":"on", "value":"on"}, {"label":"off", "value":"off"}]}'
+    - "// @input string scenarioText = \"A gas cylinder burst in the college canteen. The fire is out. You're the first trained volunteer inside — four people need you.\" {\"hint\":\"Scenario line shown after Start\"}"
+    - '// @input float scenarioHoldSeconds = 6 {"hint":"Seconds the scenario line stays before fading", "widget":"slider", "min":1, "max":15, "step":0.5}'
+    - '// @input float scenarioFadeSeconds = 2 {"hint":"Seconds the scenario line takes to fade", "widget":"slider", "min":0.5, "max":5, "step":0.5}'
+    - '// @input float boxUnitCm = 1 {"hint":"Measured size in cm of a scale-1 box primitive"}'
+    - '// @input float sphereUnitCm = 1 {"hint":"Measured size in cm of a scale-1 sphere primitive"}'
+    - '// @ui {"widget":"group_end"}'

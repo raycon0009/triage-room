@@ -1,0 +1,59 @@
+- !<AssetImportMetadata/e22980d9-b58d-4da9-950f-23185cb3bfa1>
+  ImportedAssetIds:
+    TypeScriptAsset: !<reference> 5bdf76de-3091-4ef4-b13d-d394e1e9858f
+  ImporterName: TypeScriptAssetImporter
+  PrimaryAsset: !<reference> 5bdf76de-3091-4ef4-b13d-d394e1e9858f
+  PackageType: NotAPackage
+  LegacyPackagePolicy: ~
+  ExtraData:
+    {}
+  AssetDataMap:
+    TypeScriptAsset: !<own> 25d7d5d3-b354-4b86-bf89-93b10c08df22
+  DependentFiles:
+    []
+  ImporterSettings: !<AssetImporterSettings>
+    {}
+  CompressionSettings: !<own> 00000000-0000-0000-0000-000000000000
+- !<TypeScriptAssetData/25d7d5d3-b354-4b86-bf89-93b10c08df22>
+  SvgIcon: ""
+  SetupScript:
+    code: ""
+  Description: ""
+  VersionMajor: 0
+  VersionMinor: 0
+  VersionPatch: 0
+  VersionPrerelease: ""
+  UpdateOrder: 0
+  ComponentUid: cdee11df-e499-4583-b070-394112bbc28e
+  ExportUid: 00000000-0000-0000-0000-000000000000
+  PackagePolicy: CanBeUnpacked
+  ScriptInputsHidden:
+    heightCm: false
+    textColor: false
+    textSize: false
+    widthCm: false
+  ScriptTypesHidden:
+    {}
+  ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
+  DeclarationFile: !<reference> 00000000-0000-0000-0000-000000000000
+  Tags:
+    []
+  Attachments:
+    []
+  DefaultScriptInputs:
+    - widthCm: !<float> 46.000000
+      heightCm: !<float> 14.000000
+      textSize: !<float> 42.000000
+      textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
+  ScriptTypes:
+    -
+      {}
+  InputLines:
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageScenarioUI - scenario line (passive view)</span>"}'
+    - '// @ui {"widget":"separator"}'
+    - '// @ui {"widget":"group_start", "label":"Settings"}'
+    - '// @input float widthCm = 46 {"hint":"Width of the text block (cm); the line wraps inside it", "widget":"slider", "min":20, "max":70, "step":1}'
+    - '// @input float heightCm = 14 {"hint":"Height of the text block (cm)", "widget":"slider", "min":6, "max":30, "step":1}'
+    - '// @input float textSize = 58 {"hint":"Text size (Specs type scale: 39 = body at 110 cm)", "widget":"slider", "min":30, "max":90, "step":1}'
+    - '// @input vec4 textColor = "{1,1,1,1}" {"hint":"Text colour (keep it light; black is invisible on additive displays)", "widget":"color"}'
+    - '// @ui {"widget":"group_end"}'
