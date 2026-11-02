@@ -37,16 +37,22 @@ export interface CasualtyRecord {
 
 type OpenReason = "proximity" | "button"
 
-const TYPE_BUTTON = 54
-const TYPE_TITLE = 58
-const TYPE_STATUS = 42
+const TYPE_BUTTON = 44
+const TYPE_TITLE = 50
+const TYPE_STATUS = 36
+const TYPE_TAG = 32
 const BUTTON_LABEL_Z = 0.08
 const CONTENT_Z = 0.6
 
-const CHECK_W = 34
-const CHECK_H = 29.5
-const TAG_H = 8
+const CHECK_W = 25
+const CHECK_H = 26.5
+const TAG_H = 7
 const TAG_GAP = 0.8
+const CHECK_BTN_H = 4.4
+// extents of the whole card (check panel + tag panel) from the check panel's centre
+const CARD_TOP = CHECK_H / 2
+const CARD_BOTTOM = CHECK_H / 2 + TAG_GAP + TAG_H
+const FOLLOW_ANGLE = 30 // beyond this the card is out of view and glides back
 const TAG_COLOUR: { [k in StartTag]: vec4 } = {
   Red: new vec4(1, 0.45, 0.45, 1),
   Yellow: new vec4(1, 0.92, 0.35, 1),
@@ -92,12 +98,12 @@ export class TriageCheckCards extends BaseScriptComponent {
   @input
   @widget(new SliderWidget(50, 120, 1))
   @hint("Distance of the card from the eyes (cm)")
-  cardDistanceCm: number = 80
+  cardDistanceCm: number = 70
 
   @input
   @widget(new SliderWidget(0, 40, 1))
-  @hint("How far the top of the card sits below eye level (cm)")
-  cardDropCm: number = 6
+  @hint("How far below the centre of view the card sits (cm)")
+  cardDropCm: number = 3
 
   @input
   @widget(new SliderWidget(0.2, 3, 0.1))
@@ -132,8 +138,13 @@ export class TriageCheckCards extends BaseScriptComponent {
   private openReason: OpenReason | null = null
   private cooldown = 0
   private viewerOverride: vec3 | null = null
-  private cardTarget: vec3 | null = null
+  private lookOverride: vec3 | null = null
   private cardFollowing = false
+  private cardGoalPos: vec3 | null = null
+  private anchors: { [id: string]: { head: SceneObject | null; torso: SceneObject | null; dot: SceneObject | null } } = {}
+  private line: SceneObject | null = null
+  private lineFrom = new vec3(0, 0, 0)
+  private lineTo = new vec3(0, 0, 0)
 
   onAwake() {
     this.createEvent("OnStartEvent").bind(() => this.onStart())
@@ -160,8 +171,26 @@ export class TriageCheckCards extends BaseScriptComponent {
   // ------------------------------------------------------------------ public API
 
   /** Test hook: pretend the viewer stands here (world cm). null = use the camera. */
-  setViewerOverride(p: vec3 | null): void {
+  setViewerOverride(p: vec3 | null, look?: vec3 | null): void {
     this.viewerOverride = p
+    this.lookOverride = p && look ? look.normalize() : null
+  }
+
+  /** Card size in cm (check panel width; check panel + tag panel height) and the check button height. */
+  getCardSizeCm(): { width: number; height: number; buttonHeight: number } {
+    return { width: CHECK_W, height: CARD_TOP + CARD_BOTTOM, buttonHeight: CHECK_BTN_H }
+  }
+
+  /** The line joining the card to the open casualty's dot (world cm). */
+  getConnector(): { visible: boolean; from: vec3; to: vec3 } {
+    const vis = !!this.line && this.line.enabled
+    return { visible: vis, from: this.lineFrom, to: this.lineTo }
+  }
+
+  /** Is any sampled point of the open casualty's head / torso hidden behind the card from the viewer? */
+  isCasualtyCovered(id: string): boolean {
+    const ct = this.cardRoot.getTransform()
+    return this.coveredAt(id, ct.getWorldPosition(), this.viewerPos(), this.lookDir())
   }
 
   getOpenCasualtyId(): string | null {
@@ -206,6 +235,7 @@ export class TriageCheckCards extends BaseScriptComponent {
     this.openId = null
     this.openReason = null
     this.cardRoot.enabled = false
+    if (this.line) this.line.enabled = false
     this.refreshDots()
   }
 
@@ -281,6 +311,7 @@ export class TriageCheckCards extends BaseScriptComponent {
   private rebuildForRun(): void {
     // the previous run's casualty objects (and our dots on them) have just been destroyed
     this.dots = {}
+    this.anchors = {}
     this.records = {}
     this.dismissed = {}
     this.closeCard()
@@ -288,7 +319,14 @@ export class TriageCheckCards extends BaseScriptComponent {
     for (const c of state.casualties) {
       this.records[c.id] = { checks: [], presses: 0, openSeconds: 0, tag: null }
       const cas = this.main.getCasualtyObject(c.id)
-      if (cas) this.dots[c.id] = this.buildDot(cas, c.id)
+      if (cas) {
+        this.dots[c.id] = this.buildDot(cas, c.id)
+        this.anchors[c.id] = {
+          head: this.findByName(cas, "Head"),
+          torso: this.findByName(cas, "Torso"),
+          dot: this.findByName(cas, "Dot_" + c.id),
+        }
+      }
     }
   }
 
@@ -308,9 +346,8 @@ export class TriageCheckCards extends BaseScriptComponent {
   }
 
   private lookDir(): vec3 {
-    const d = this.cameraObject.getTransform().getWorldRotation().multiplyVec3(new vec3(0, 0, -1))
-    const flat = new vec3(d.x, 0, d.z)
-    return flat.length < 0.01 ? new vec3(0, 0, -1) : flat.normalize()
+    if (this.lookOverride) return this.lookOverride
+    return this.cameraObject.getTransform().getWorldRotation().multiplyVec3(new vec3(0, 0, -1)).normalize()
   }
 
   private distTo(id: string, viewer: vec3): number {
@@ -359,7 +396,10 @@ export class TriageCheckCards extends BaseScriptComponent {
     }
 
     this.billboard(viewer)
-    if (this.openId) this.followViewer(viewer, dt)
+    if (this.openId) {
+      this.followViewer(viewer, dt)
+      this.updateConnector()
+    }
   }
 
   private faceYaw(from: vec3, to: vec3): quat {
@@ -380,43 +420,158 @@ export class TriageCheckCards extends BaseScriptComponent {
       }
     }
     if (this.cardRoot.enabled) {
-      const ct = this.cardRoot.getTransform()
-      ct.setWorldRotation(this.faceYaw(ct.getWorldPosition(), viewer))
+      // parallel to the view plane (no roll), so its edges stay upright however far down the viewer looks
+      const look = this.lookDir()
+      const yawQ = quat.fromEulerVec(new vec3(0, Math.atan2(-look.x, -look.z), 0))
+      const pitchQ = quat.angleAxis(Math.asin(Math.max(-1, Math.min(1, look.y))), new vec3(1, 0, 0))
+      this.cardRoot.getTransform().setWorldRotation(yawQ.multiply(pitchQ))
     }
   }
 
   // ------------------------------------------------------------------ card placement
 
-  private cardGoal(viewer: vec3): vec3 {
-    const f = this.lookDir()
-    // centre of the check panel: top edge cardDropCm below the eyes
-    const cy = viewer.y - this.cardDropCm - CHECK_H / 2
-    return new vec3(viewer.x + f.x * this.cardDistanceCm, cy, viewer.z + f.z * this.cardDistanceCm)
+  /** Camera right / up for a look direction. */
+  private axes(look: vec3): { right: vec3; up: vec3 } {
+    let right = look.cross(new vec3(0, 1, 0))
+    right = right.length < 0.001 ? new vec3(1, 0, 0) : right.normalize()
+    return { right: right, up: right.cross(look).normalize() }
+  }
+
+  /** Sample points on the open casualty's head and torso (world cm). */
+  private samplePoints(id: string): vec3[] {
+    const a = this.anchors[id]
+    const pts: vec3[] = []
+    if (!a || !a.torso || isNull(a.torso)) return pts
+    const t = a.torso.getTransform().getWorldPosition()
+    pts.push(t)
+    if (a.head && !isNull(a.head)) {
+      const h = a.head.getTransform().getWorldPosition()
+      pts.push(h)
+      pts.push(new vec3((h.x + t.x) / 2, (h.y + t.y) / 2, (h.z + t.z) / 2))
+      const d = t.sub(h)
+      const len = d.length || 1
+      pts.push(t.add(d.uniformScale(22 / len))) // the far end of the torso
+    }
+    return pts
+  }
+
+  /** Would the card (centre c, parallel to the view plane) hide any head/torso sample point of casualty `id`? */
+  private coveredAt(id: string, c: vec3, e: vec3, look: vec3): boolean {
+    const ax = this.axes(look)
+    const toCard = c.sub(e)
+    const depth = toCard.dot(look)
+    for (const q of this.samplePoints(id)) {
+      const r = q.sub(e)
+      const dn = r.dot(look)
+      if (dn <= 0) continue
+      const t = depth / dn
+      if (t >= 1) continue // the card is behind this point
+      const hit = e.add(r.uniformScale(t)).sub(c)
+      const m = 0.5 + 9 * t // margin: about the head's own radius at the card's distance
+      const x = hit.dot(ax.right)
+      const y = hit.dot(ax.up)
+      if (Math.abs(x) < CHECK_W / 2 + m && y < CARD_TOP + m && y > -CARD_BOTTOM - m) return true
+    }
+    return false
+  }
+
+  /** Largest angle (deg) between the view direction and any corner of the whole card. */
+  private maxCornerAngle(pos: vec3, viewer: vec3, look: vec3): number {
+    const ax = this.axes(look)
+    let worst = 0
+    for (const sx of [-1, 1]) {
+      for (const y of [CARD_TOP, -CARD_BOTTOM]) {
+        const corner = pos.add(ax.right.uniformScale(sx * CHECK_W / 2)).add(ax.up.uniformScale(y))
+        const a = (Math.acos(Math.max(-1, Math.min(1, corner.sub(viewer).normalize().dot(look)))) * 180) / Math.PI
+        if (a > worst) worst = a
+      }
+    }
+    return worst
+  }
+
+  /** Where the card should sit: along the view direction, a little below the centre of view; slid to the side
+   *  (or down) just enough that it does not cover the casualty's head or torso. */
+  private cardGoal(viewer: vec3, id: string | null): vec3 {
+    const look = this.lookDir()
+    const ax = this.axes(look)
+    const base = viewer.add(look.uniformScale(this.cardDistanceCm)).sub(ax.up.uniformScale(this.cardDropCm))
+    if (!id || !this.coveredAt(id, base, viewer, look)) return base
+    // slide it sideways (or down) just far enough to clear the head and torso, choosing the clear spot that keeps
+    // the whole card (all four corners) closest to the centre of view
+    const pts = this.samplePoints(id)
+    const side = pts.length && pts[0].sub(viewer).dot(ax.right) > 0 ? -1 : 1
+    let best: vec3 | null = null
+    let bestScore = 1e9
+    for (let k = 0; k <= 32; k++) {
+      for (let v = -2; v <= 8; v++) {
+        for (const sgn of [side, -side]) {
+          const pos = base.add(ax.right.uniformScale(sgn * k * 1.5)).sub(ax.up.uniformScale(v * 4))
+          if (this.coveredAt(id, pos, viewer, look)) continue
+          const score = this.maxCornerAngle(pos, viewer, look) + 0.02 * (k * 1.5 + Math.abs(v) * 4) + (sgn === side ? 0 : 0.5)
+          if (score < bestScore) {
+            bestScore = score
+            best = pos
+          }
+        }
+      }
+    }
+    return best ? best : base.add(ax.right.uniformScale(side * 36)).sub(ax.up.uniformScale(8))
   }
 
   private placeCard(snap: boolean): void {
-    const goal = this.cardGoal(this.viewerPos())
-    this.cardTarget = goal
+    const goal = this.cardGoal(this.viewerPos(), this.openId)
+    this.cardGoalPos = goal
     this.cardFollowing = false
     if (snap) this.cardRoot.getTransform().setWorldPosition(goal)
   }
 
-  /** The card stays put; it only glides to a fresh spot when the viewer has turned or walked away from it. */
+  /** The card stays where it is (not stuck to the head). Only when it has left the view, or the viewer has
+   *  walked away from it, does it glide back to a fresh spot in view. */
   private followViewer(viewer: vec3, dt: number): void {
     const ct = this.cardRoot.getTransform()
     const cur = ct.getWorldPosition()
-    const f = this.lookDir()
-    const to = new vec3(cur.x - viewer.x, 0, cur.z - viewer.z)
+    const look = this.lookDir()
+    const to = cur.sub(viewer)
     const dist = to.length
-    const cos = dist < 0.01 ? 1 : (to.x * f.x + to.z * f.z) / dist
-    const angleOff = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI
-    if (!this.cardFollowing && (angleOff > 40 || Math.abs(dist - this.cardDistanceCm) > 35)) this.cardFollowing = true
+    const ang = dist < 0.01 ? 0 : (Math.acos(Math.max(-1, Math.min(1, to.normalize().dot(look)))) * 180) / Math.PI
+    if (!this.cardFollowing && (ang > FOLLOW_ANGLE || Math.abs(dist - this.cardDistanceCm) > 35)) this.cardFollowing = true
     if (!this.cardFollowing) return
-    const goal = this.cardGoal(viewer)
-    const k = Math.min(1, dt * 5)
-    const next = new vec3(cur.x + (goal.x - cur.x) * k, cur.y + (goal.y - cur.y) * k, cur.z + (goal.z - cur.z) * k)
+    const goal = this.cardGoal(viewer, this.openId)
+    this.cardGoalPos = goal
+    const k = Math.min(1, dt * 4)
+    const next = cur.add(goal.sub(cur).uniformScale(k))
     ct.setWorldPosition(next)
-    if (Math.abs(goal.x - next.x) + Math.abs(goal.z - next.z) < 3) this.cardFollowing = false
+    if (goal.sub(next).length < 2) this.cardFollowing = false
+  }
+
+  /** A thin line from the card's side edge to the open casualty's dot, so it is clear whose card it is. */
+  private updateConnector(): void {
+    const id = this.openId
+    const a = id ? this.anchors[id] : null
+    if (!this.line || !id || !a || !a.dot || isNull(a.dot)) {
+      if (this.line) this.line.enabled = false
+      return
+    }
+    const ct = this.cardRoot.getTransform()
+    const c = ct.getWorldPosition()
+    const b = a.dot.getTransform().getWorldPosition()
+    const right = ct.getWorldRotation().multiplyVec3(new vec3(1, 0, 0))
+    const sgn = b.sub(c).dot(right) >= 0 ? 1 : -1
+    const from = c.add(right.uniformScale(sgn * (CHECK_W / 2)))
+    const d = b.sub(from)
+    const len = d.length
+    this.lineFrom = from
+    this.lineTo = b
+    if (len < 1) {
+      this.line.enabled = false
+      return
+    }
+    this.line.enabled = true
+    const lt = this.line.getTransform()
+    lt.setWorldPosition(from.add(d.uniformScale(0.5)))
+    lt.setWorldRotation(quat.rotationFromTo(new vec3(0, 0, 1), d.uniformScale(1 / len)))
+    const unit = this.main.boxUnitCm
+    lt.setWorldScale(new vec3(0.5 / unit, 0.5 / unit, len / unit))
   }
 
   // ------------------------------------------------------------------ card refresh
@@ -542,16 +697,16 @@ export class TriageCheckCards extends BaseScriptComponent {
     flex.direction = FlexDirection.Column
     flex.alignItems = FlexAlign.Center
     flex.justifyContent = FlexJustify.Center
-    flex.rowGap = 0.6
-    flex.paddingTop = 1.2
-    flex.paddingBottom = 1.2
-    flex.paddingLeft = 1.2
-    flex.paddingRight = 1.2
+    flex.rowGap = 0.5
+    flex.paddingTop = 1.0
+    flex.paddingBottom = 1.0
+    flex.paddingLeft = 1.0
+    flex.paddingRight = 1.0
     flex.width = CHECK_W
     flex.height = CHECK_H
 
-    this.titleText = this.addText(content, "Title", "", TYPE_TITLE, CHECK_W - 2, 2.6)
-    this.statusText = this.addText(content, "Status", "", TYPE_STATUS, CHECK_W - 2, 2.0)
+    this.titleText = this.addText(content, "Title", "", TYPE_TITLE, CHECK_W - 2, 2.4)
+    this.statusText = this.addText(content, "Status", "", TYPE_STATUS, CHECK_W - 2, 1.8)
     const slots = ["breathing", "second", "pulse", "commands"]
     const labels = ["Breathing?", "Breathing rate", "Pulse / refill", "Follows commands?"]
     const objNames = ["CardBtn_breathing", "CardBtn_second", "CardBtn_pulse", "CardBtn_commands"]
@@ -560,11 +715,11 @@ export class TriageCheckCards extends BaseScriptComponent {
       const so = global.scene.createSceneObject(objNames[i])
       so.setParent(content)
       const btn = so.createComponent(Button.getTypeName()) as Button
-      btn.size = new vec3(CHECK_W - 4, 4.8, 1)
-      const label = this.addButtonLabel(so, labels[i], CHECK_W - 5, TYPE_BUTTON)
+      btn.size = new vec3(CHECK_W - 3, CHECK_BTN_H, 1)
+      const label = this.addButtonLabel(so, labels[i], CHECK_W - 4, TYPE_BUTTON)
       const item = so.createComponent(FlexItem.getTypeName()) as FlexItem
-      item.overrideWidth = CHECK_W - 4
-      item.overrideHeight = 4.8
+      item.overrideWidth = CHECK_W - 3
+      item.overrideHeight = CHECK_BTN_H
       const check = checks[i]
       btn.onTriggerUp.add(() => this.pressCheck(check))
       this.checkButtons[slots[i]] = { button: btn, label: label, obj: so }
@@ -584,29 +739,29 @@ export class TriageCheckCards extends BaseScriptComponent {
     tflex.direction = FlexDirection.Row
     tflex.alignItems = FlexAlign.Center
     tflex.justifyContent = FlexJustify.Center
-    tflex.columnGap = 0.6
-    tflex.paddingLeft = 1.0
-    tflex.paddingRight = 1.0
+    tflex.columnGap = 0.4
+    tflex.paddingLeft = 0.7
+    tflex.paddingRight = 0.7
     tflex.paddingTop = 1.0
     tflex.paddingBottom = 1.0
     tflex.width = CHECK_W
     tflex.height = TAG_H
     const tags: { tag: StartTag; name: string; text: string; w: number }[] = [
-      { tag: "Red", name: "TagBtn_Red", text: "RED", w: 6.4 },
-      { tag: "Yellow", name: "TagBtn_Yellow", text: "YELLOW", w: 7.8 },
-      { tag: "Green", name: "TagBtn_Green", text: "GREEN", w: 6.8 },
-      { tag: "Black", name: "TagBtn_Expectant", text: "EXPECTANT", w: 10.4 },
+      { tag: "Red", name: "TagBtn_Red", text: "RED", w: 4.4 },
+      { tag: "Yellow", name: "TagBtn_Yellow", text: "YELLOW", w: 5.6 },
+      { tag: "Green", name: "TagBtn_Green", text: "GREEN", w: 5.0 },
+      { tag: "Black", name: "TagBtn_Expectant", text: "EXPECTANT", w: 7.4 },
     ]
     for (const t of tags) {
       const so = global.scene.createSceneObject(t.name)
       so.setParent(tcontent)
       const btn = so.createComponent(Button.getTypeName()) as Button
-      btn.size = new vec3(t.w, 5.6, 1)
-      const label = this.addButtonLabel(so, t.text, t.w - 0.4, 40)
+      btn.size = new vec3(t.w, 5, 1)
+      const label = this.addButtonLabel(so, t.text, t.w - 0.3, TYPE_TAG)
       label.textFill.color = TAG_COLOUR[t.tag]
       const item = so.createComponent(FlexItem.getTypeName()) as FlexItem
       item.overrideWidth = t.w
-      item.overrideHeight = 5.6
+      item.overrideHeight = 5
       const tg = t.tag
       btn.onTriggerUp.add(() => this.chooseTag(tg))
       this.tagButtons[t.name] = { button: btn, label: label, obj: so }
@@ -614,6 +769,11 @@ export class TriageCheckCards extends BaseScriptComponent {
 
     this.tagPanel.enabled = false
     this.cardRoot.enabled = false
+
+    if (this.builder) {
+      this.line = this.builder.createPart(this.sceneObject, "CardConnector", "box", [0, 0, 0], [0.5, 0.5, 0.5], [0.55, 0.95, 1.0])
+      this.line.enabled = false
+    }
   }
 
   private addText(parent: SceneObject, name: string, text: string, size: number, widthCm: number, heightCm: number): Text {

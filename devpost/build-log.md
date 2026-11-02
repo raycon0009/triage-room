@@ -143,3 +143,23 @@ One preview capture shows an open card ("Lying face up, still", casualty F) and 
 - The tag word above a casualty can be cut off by the edge of the view when the casualty is at the side.
 - Not built (later steps): timer, call-out, groan, arrow, chime, debrief, shuffle/restart. Walker does not stand up yet.
 - The project was saved from Lens Studio (the `TriageCards` object is in `Assets/Scene.scene`). A backup was not taken before this step; git holds step 1.
+
+## Build step 2 fix: check card placement (after your Preview check)
+
+**Problem you found:** looking down at a casualty, the card sat at the top edge of the view (only "Follows commands?" visible) and covered the seated casualty's head. Cause: the card used only the horizontal look direction and a fixed height, and had no idea where the casualty was.
+
+**What changed (`TriageCheckCards.ts`)**
+- Placement: when the card opens it goes along the full 3D look direction (including looking down), 70 cm from the eyes (was 80), 3 cm below the centre of view. The card is parallel to the view plane (upright, no roll, however far down you look).
+- Size: 25 cm wide (was 34). Check buttons 22 x 4.4 cm; the tag panel is one row of four buttons below the card.
+- Never covers the casualty: from the eye, rays to sampled points on the head and torso must not pass through the card (card + tag panel area, with a margin about the size of the head at that distance). If the centred spot would cover them, the card slides sideways (or down) to the clear spot that keeps all four corners closest to the view centre.
+- Lazy follow: the card stays put when you turn a little. It only glides back (about a quarter of a second to settle) when its centre is more than 30 degrees from where you look, or you have moved away from it (more than 35 cm off its distance).
+- Connector: a thin light-cyan line from the card's side edge to the casualty's dot, shown while the card is open.
+- The scene still held the old values (distance 80, drop 6), which override script defaults; set to 70 and 3 and saved.
+
+**LEAF (one at a time): 4 of 4 step 2 scenarios pass.** The card-position test (`triage-card-opens-proximity-and-open`) was rewritten for the new rules: far "Open" in front of the eyes (about 70 cm along the view, below centre, within 20 degrees); proximity opening while looking steeply down at A (centre within 22 degrees, all four corners within 35 degrees, upright, parallel to view); independent rays show the head and torso not covered; connector visible and ends at the dot; width 24-26 cm and buttons taller than 4 cm; a 10 degree turn leaves the card still (under 1 cm), a 140 degree turn brings it back within 25 degrees of the new look direction; walking away closes it and the line.
+- That scenario failed twice on the way, for different reasons, both fixed before it passed: a distance bound that did not allow for the sideways slide (80.2 cm), then the scene's stale 80 cm value. Not the same failure repeating.
+- The 6 step 1 scenarios were not re-run this time (nothing they test changed).
+
+**Capture:** one preview capture looking down at casualty B (lying on side) with the card open to their right, upright, the head and torso clear, the connector line running to the dot. `CaptureRuntimeViewTool` not used.
+
+**Limit you should know about (not solved):** the preview's view is about 14 degrees to each side horizontally (the card at 70 cm is about 25 cm = +/-10 degrees; a casualty centred in view takes about +/-11 degrees). So when you look straight at someone, a 25 cm card that also must not cover them cannot fit fully in the view: in the capture roughly a third of the card is cut off on the right. It is placed as close to the centre as it can be, and turning your head a few degrees towards it brings it fully in view (the casualty is then no longer behind it). Ways to relax this, your call: a narrower card (about 20 cm), the card allowed to overlap the legs, or shown further away (0.9-1 m) when it has to be offset. Real-glasses field of view is similar or narrower, so this is "feel unproven".

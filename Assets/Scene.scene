@@ -545,8 +545,6 @@
   ScriptInputsDefault:
     proximityCm: true
     leaveCm: true
-    cardDistanceCm: true
-    cardDropCm: true
     cooldownSeconds: true
     textColor: true
   ScriptTypesDefault:
@@ -557,8 +555,8 @@
       cameraObject: !<reference.SceneObject> 00000000-0000-0065-0000-000000000064
       proximityCm: !<float> 150.000000
       leaveCm: !<float> 220.000000
-      cardDistanceCm: !<float> 80.000000
-      cardDropCm: !<float> 6.000000
+      cardDistanceCm: !<float> 70.000000
+      cardDropCm: !<float> 3.000000
       cooldownSeconds: !<float> 1.000000
       textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
   ScriptTypes:
