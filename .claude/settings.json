@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "deny": [
+      "mcp__lens-studio__CaptureRuntimeViewTool",
+      "mcp__lens-studio__QueryRuntimeSceneTool"
+    ]
+  }
+}
