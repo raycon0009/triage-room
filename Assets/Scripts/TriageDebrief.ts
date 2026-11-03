@@ -32,6 +32,12 @@ import { TriageFigureBuilder, TAG_BAND_COLOUR } from "./TriageFigureBuilder"
 import { CASUALTY_TABLE } from "./TriageData"
 import { ROOM } from "./TriageLayout"
 import { DebriefEntry, DebriefSummary, buildEntry, orderRows, summarize } from "./TriageScoring"
+import { RoundedRectangle } from "SpectaclesUIKit.lspkg/Scripts/Visuals/RoundedRectangle/RoundedRectangle"
+import { DEBRIEF_SIZES, TEXT_SMALL, addPressPop, clamp01, easeOutCubic, finishMotion, lerp, showPanel } from "./TriageUi"
+import {
+  COL_B, COL_C, COL_D, COL_YOU_WORD, LEFT, MARGIN, PANEL_W, PAUSE_AFTER_TIMES_UP, REVEAL_FADE_SECONDS, RIGHT,
+  RevealStep, layoutPanel, pitch, revealSchedule,
+} from "./TriageDebriefLayout"
 
 const TAG_TEXT_COLOUR: { [tag: string]: vec4 } = {
   Red: new vec4(1, 0.45, 0.45, 1),
@@ -42,31 +48,20 @@ const TAG_TEXT_COLOUR: { [tag: string]: vec4 } = {
 const WHITE = new vec4(1, 1, 1, 1)
 const FLASH_DIM = new vec4(1, 0.3, 0.3, 1) // the flash alternates between this red and white (white = the bright phase)
 
-// ---- panel layout (cm in the panel's own plane; text size / 43.9 = em-square in cm)
-const PANEL_W = 62
-const MARGIN = 2.2
-const LEFT = -PANEL_W / 2 + MARGIN
-const RIGHT = PANEL_W / 2 - MARGIN
-/** step 4's explanation lines were size 58: the smallest text on this panel must be at least twice that */
-const ROW_SIZE = 118
-const SUMMARY_SIZE = 150
-const NOT_REACHED_SIZE = 172
-const LINE = 1.2 // line pitch = em * LINE
-const PAD_Y = 2.4
-const ROW_GAP = 1.0
+// ---- panel layout: see TriageDebriefLayout.ts (pure, tested in Node)
 const GUTTER_Z = 0.6
 /** How long an old debrief stays (hidden) before it is destroyed, so the interactor that pressed Restart lets go first */
 const RETIRE_SECONDS = 0.5
-
-function pitch(size: number): number {
-  return (size / 43.9) * LINE
-}
+/** the panel itself fades and scales in over this long once it appears */
+const PANEL_IN = 0.26
+const PANEL_FROM = 0.92
 
 interface RowParts {
   id: string
   row: number
   texts: { [name: string]: Text }
   sizes: { [name: string]: number }
+  colors: { [name: string]: vec4 }
   notReached: Text | null
   worldFlash: SceneObject | null
   worldFlashText: Text | null
@@ -151,6 +146,15 @@ export class TriageDebrief extends BaseScriptComponent {
   private graceLeft = -1
   private flash = 1
   private pendingRestart = false
+  // reveal (time's up -> pause -> panel -> NOT REACHED rows + marker over the real person -> the other rows one by one)
+  private plan: RevealStep[] = []
+  private panelAt = 0
+  private panelStarted = false
+  private revealT = 0
+  private revealed: { [key: string]: boolean } = {}
+  private revealLog: { kind: string; id: string | null; t: number }[] = []
+  private panelPlate: RoundedRectangle | null = null
+  private timesUpHidden = false
   private viewerOverride: vec3 | null = null
   /**
    * Old debriefs waiting to be destroyed. clear() hides the old debrief at once but destroys it a moment later: the
@@ -300,6 +304,34 @@ export class TriageDebrief extends BaseScriptComponent {
     const r = this.rows[id]
     return r && r.worldFlash && !isNull(r.worldFlash) ? r.worldFlash : null
   }
+  /** What appeared and when (seconds since the debrief opened), in order: "panel", then "missed" rows, then "row"s. */
+  getRevealLog(): { kind: string; id: string | null; t: number }[] {
+    return this.revealLog.slice()
+  }
+  /** The planned order and offsets (seconds after the panel starts to appear). */
+  getRevealPlan(): RevealStep[] {
+    return this.plan.slice()
+  }
+  /** True once the panel and every row are fully in. */
+  isRevealDone(): boolean {
+    return this.open && this.panelStarted && this.revealT >= this.revealEnd()
+  }
+  /** Test hook: jump to the end of the reveal (panel and every row fully in, Time's up stepped aside). */
+  skipReveal(): void {
+    if (!this.open) return
+    if (this.reason === "time") this.clock.hideTimesUp()
+    this.timesUpHidden = true
+    this.sinceOpen = Math.max(this.sinceOpen, this.panelAt)
+    this.startPanel()
+    this.revealT = this.revealEnd() + 1
+    this.applyReveal()
+    finishMotion()
+  }
+  private revealEnd(): number {
+    let end = PANEL_IN
+    for (const st of this.plan) end = Math.max(end, st.at + REVEAL_FADE_SECONDS)
+    return end
+  }
   /** Same code path as pinching the Restart button. */
   pressRestart(): void {
     this.pendingRestart = true
@@ -361,19 +393,25 @@ export class TriageDebrief extends BaseScriptComponent {
       return
     }
     this.sinceOpen += dt
-    if (this.sinceOpen >= this.timesUpSeconds) {
-      this.clock.hideTimesUp()
-      if (this.panel && !isNull(this.panel) && !this.panel.enabled) this.panel.enabled = true
+    if (this.reason === "time" && !this.timesUpHidden && this.sinceOpen >= this.timesUpSeconds) {
+      this.timesUpHidden = true
+      this.clock.hideTimesUp() // fades out; a short pause follows before the panel appears
+    }
+    if (!this.panelStarted && this.sinceOpen >= this.panelAt) this.startPanel()
+    if (this.panelStarted) {
+      this.revealT += dt
+      this.applyReveal()
     }
 
     // the "Not reached" flash: between the dim red and bright white; with flashHz 0 it holds the bright phase
     this.flash = 0.65 + 0.35 * Math.sin(this.sinceOpen * Math.PI * 2 * this.flashHz + Math.PI / 2)
     const k = Math.max(0, Math.min(1, (this.flash - 0.3) / 0.7))
-    const col = new vec4(FLASH_DIM.r + (1 - FLASH_DIM.r) * k, FLASH_DIM.g + (1 - FLASH_DIM.g) * k, FLASH_DIM.b + (1 - FLASH_DIM.b) * k, 1)
     const eye = this.eye()
     for (const id in this.rows) {
       const r = this.rows[id]
       if (!r.missed) continue
+      const a = this.rowAlpha(r)
+      const col = new vec4(FLASH_DIM.r + (1 - FLASH_DIM.r) * k, FLASH_DIM.g + (1 - FLASH_DIM.g) * k, FLASH_DIM.b + (1 - FLASH_DIM.b) * k, a)
       if (r.notReached && !isNull(r.notReached)) r.notReached.textFill.color = col
       if (r.worldFlashText && !isNull(r.worldFlashText)) r.worldFlashText.textFill.color = col
       if (r.worldFlash && !isNull(r.worldFlash)) this.faceViewer(r.worldFlash, eye)
@@ -385,6 +423,60 @@ export class TriageDebrief extends BaseScriptComponent {
     if (this.panel && !isNull(this.panel)) this.faceViewer(this.panel, eye)
     if (this.restartObj && !isNull(this.restartObj)) this.faceViewer(this.restartObj, eye)
     for (const o of this.billboards) if (!isNull(o)) this.faceViewer(o, eye)
+  }
+
+  /** The panel appears: enabled, then it fades and scales in; the Restart button comes with it. */
+  private startPanel(): void {
+    if (this.panelStarted) return
+    this.panelStarted = true
+    this.revealT = 0
+    if (this.panel && !isNull(this.panel)) this.panel.enabled = true
+    if (this.restartObj && !isNull(this.restartObj)) showPanel(this.restartObj)
+    this.revealLog.push({ kind: "panel", id: null, t: this.sinceOpen })
+    print("TRIAGE_REVEAL panel " + Math.round(this.sinceOpen * 100) / 100)
+  }
+
+  /** 0..1: how far a row (and the marker over the real person) has come in. */
+  private rowAlpha(r: RowParts): number {
+    if (!this.panelStarted) return 0
+    const st = this.plan.filter((x) => x.id === r.id)[0]
+    if (!st) return 1
+    return clamp01((this.revealT - st.at) / REVEAL_FADE_SECONDS)
+  }
+
+  /** Apply the reveal state: the panel's own fade + scale, then each row's fade, in the planned order. */
+  private applyReveal(): void {
+    if (!this.panel || isNull(this.panel)) return
+    const pk = easeOutCubic(this.revealT / PANEL_IN)
+    const sc = lerp(PANEL_FROM, 1, pk)
+    this.panel.getTransform().setLocalScale(new vec3(sc, sc, sc))
+    if (this.panelPlate && !isNull(this.panelPlate)) this.panelPlate.opacity = pk
+    for (const t of this.summaryTexts) this.setAlpha(t, WHITE, pk)
+    for (const st of this.plan) {
+      if (st.id === null) continue
+      const r = this.rows[st.id]
+      if (!r) continue
+      const key = st.kind + ":" + st.id
+      if (!this.revealed[key] && this.revealT >= st.at) {
+        this.revealed[key] = true
+        this.revealLog.push({ kind: st.kind, id: st.id, t: this.sinceOpen })
+        print("TRIAGE_REVEAL " + st.kind + " " + st.id + " " + Math.round(this.sinceOpen * 100) / 100)
+      }
+      const a = this.rowAlpha(r) * pk
+      for (const name in r.texts) {
+        if (name === "notReached") continue // its colour (flashing) is set each frame with this alpha
+        this.setAlpha(r.texts[name], r.colors[name], a)
+      }
+      if (r.missed && r.worldFlash && !isNull(r.worldFlash)) {
+        const rr = r.worldFlash.getComponent(RoundedRectangle.getTypeName()) as RoundedRectangle
+        if (rr) rr.opacity = this.rowAlpha(r)
+      }
+    }
+  }
+
+  private setAlpha(t: Text, base: vec4, a: number): void {
+    if (isNull(t)) return
+    t.textFill.color = new vec4(base.r, base.g, base.b, a)
   }
 
   /** Stand upright and face the viewer (turn about the vertical axis only). */
@@ -430,6 +522,14 @@ export class TriageDebrief extends BaseScriptComponent {
     this.graceLeft = -1
     this.pendingRestart = false
     this.panelSize = { w: PANEL_W, h: 0 }
+    this.plan = []
+    this.panelAt = 0
+    this.panelStarted = false
+    this.revealT = 0
+    this.revealed = {}
+    this.revealLog = []
+    this.panelPlate = null
+    this.timesUpHidden = false
   }
 
   private openDebrief(reason: EndReason): void {
@@ -461,11 +561,14 @@ export class TriageDebrief extends BaseScriptComponent {
 
     this.root = global.scene.createSceneObject("DebriefRoot")
     this.root.setParent(this.sceneObject)
+    this.plan = revealSchedule(this.entries)
     this.buildMap()
     this.buildPanel()
     this.buildRestart()
-    // at time's up the Time's up panel is shown alone for a moment first
-    if (reason === "time" && this.panel) this.panel.enabled = false
+    // at time's up the Time's up panel is shown alone for a moment, then a short pause, then the panel appears
+    this.panelAt = reason === "time" ? this.timesUpSeconds + PAUSE_AFTER_TIMES_UP : 0.1
+    if (this.panel) this.panel.enabled = false
+    if (this.restartObj) this.restartObj.enabled = false
     print("TRIAGE_DEBRIEF " + reason + " " + this.summary.text)
   }
 
@@ -538,7 +641,7 @@ export class TriageDebrief extends BaseScriptComponent {
       const numText = this.addText(numObj, "Number", String(e.row), 190, WHITE, 0, 0, "center", 8)
       this.billboards.push(numObj)
 
-      const parts: RowParts = { id: e.id, row: e.row, texts: {}, sizes: {}, notReached: null, worldFlash: null, worldFlashText: null, marker: marker, markerNumber: numText, missed: e.status === "missed" }
+      const parts: RowParts = { id: e.id, row: e.row, texts: {}, sizes: {}, colors: {}, notReached: null, worldFlash: null, worldFlashText: null, marker: marker, markerNumber: numText, missed: e.status === "missed" }
       this.rows[e.id] = parts
       if (parts.missed) this.buildWorldFlash(parts, new vec3(wp.x, wp.y + 150, wp.z))
     }
@@ -556,6 +659,7 @@ export class TriageDebrief extends BaseScriptComponent {
     content.setParent(wf)
     content.getTransform().setLocalPosition(new vec3(0, 0, GUTTER_Z))
     parts.worldFlashText = this.addText(content, "Text", "NOT REACHED", 200, WHITE, 0, 0, "center", 48)
+    ;(wf.getComponent(RoundedRectangle.getTypeName()) as RoundedRectangle).opacity = 0 // comes in with its row (see applyReveal)
     parts.worldFlash = wf
   }
 
@@ -569,72 +673,57 @@ export class TriageDebrief extends BaseScriptComponent {
     const content = global.scene.createSceneObject("Content")
     content.setParent(root)
     this.panel = root
+    this.panelPlate = root.getComponent(RoundedRectangle.getTypeName()) as RoundedRectangle
 
-    // running distance from the top of the panel; text centres are placed at -(cursor + pitch / 2)
-    let cursor = PAD_Y
+    // measurements come from TriageDebriefLayout (pure, tested in Node); this only draws them
+    const lay = layoutPanel(this.entries, DEBRIEF_SIZES)
     const sum = this.summary!
     for (let i = 0; i < 2; i++) {
-      const p = pitch(SUMMARY_SIZE)
-      const t = this.addText(content, "Summary" + (i + 1), sum.lines[i], SUMMARY_SIZE, WHITE, 0, -(cursor + p / 2), "center", PANEL_W - 2 * MARGIN)
+      const t = this.addText(content, "Summary" + (i + 1), sum.lines[i], DEBRIEF_SIZES.title, WHITE, 0, lay.summaryY[i], "center", PANEL_W - 2 * MARGIN)
       this.summaryTexts.push(t)
-      this.panelTexts.push({ id: "summary", name: "line" + (i + 1), text: t, size: SUMMARY_SIZE, obj: t.sceneObject })
-      cursor += p
+      this.panelTexts.push({ id: "summary", name: "line" + (i + 1), text: t, size: DEBRIEF_SIZES.title, obj: t.sceneObject })
     }
-    cursor += ROW_GAP
 
-    const COL_YOU_WORD = LEFT + 7.2
-    const COL_CORRECT = -3.6
-    const COL_CORRECT_WORD = 8.6
     const wBox = PANEL_W - 2 * MARGIN
     for (const e of this.entries) {
       const rp = this.rows[e.id]
+      const rl = lay.rows.filter((x) => x.id === e.id)[0]
       const add = (name: string, text: string, size: number, color: vec4, x: number, y: number, align: "left" | "right" | "center", w: number): Text => {
         const t = this.addText(content, "R" + e.row + "_" + name, text, size, color, x, y, align, w)
         rp.texts[name] = t
         rp.sizes[name] = size
+        rp.colors[name] = color
         this.panelTexts.push({ id: e.id, name: name, text: t, size: size, obj: t.sceneObject })
         return t
       }
       const missed = e.status === "missed"
-      // ---- line 1
-      const p1 = pitch(missed ? NOT_REACHED_SIZE : ROW_SIZE)
-      const y1 = -(cursor + p1 / 2)
-      add("number", String(e.row), missed ? NOT_REACHED_SIZE : ROW_SIZE, WHITE, LEFT, y1, "left", 6)
+      // ---- line 1: number, then the name and stats (a missed casualty: NOT REACHED, the big flashing red line)
+      add("number", String(e.row), rl.line1Size, WHITE, LEFT, rl.y1, "left", 6)
       if (missed) {
-        rp.notReached = add("notReached", "NOT REACHED", NOT_REACHED_SIZE, WHITE, LEFT + 6.5, y1, "left", wBox - 6.5)
+        rp.notReached = add("notReached", "NOT REACHED", rl.line1Size, WHITE, COL_B, rl.y1, "left", wBox - 5.2)
       } else {
-        add("name", e.shortName, ROW_SIZE, WHITE, LEFT + 5.2, y1, "left", 22)
-        add("stats", e.statsText, ROW_SIZE, WHITE, RIGHT, y1, "right", 34)
+        add("name", e.shortName, DEBRIEF_SIZES.body, WHITE, COL_B, rl.y1, "left", 24)
+        add("stats", e.statsText, DEBRIEF_SIZES.body, WHITE, RIGHT, rl.y1, "right", 32)
       }
-      cursor += p1
-      // ---- line 2: (the name, when missed) and the tags: You <WORD>   Correct <WORD>
-      const p2 = pitch(ROW_SIZE)
-      const y2 = -(cursor + p2 / 2)
+      // ---- line 2: You WORD   Correct WORD (a missed casualty: the name instead of "You WORD"), in fixed columns
       if (missed) {
-        add("name", e.shortName, ROW_SIZE, WHITE, LEFT, y2, "left", 16)
+        add("name", e.shortName, DEBRIEF_SIZES.body, WHITE, COL_B, rl.y2, "left", 16)
       } else {
-        add("youLabel", "You", ROW_SIZE, WHITE, LEFT, y2, "left", 8)
-        add("youWord", e.myWord, ROW_SIZE, TAG_TEXT_COLOUR[e.myTag || "Red"], COL_YOU_WORD, y2, "left", 18)
+        add("youLabel", "You", DEBRIEF_SIZES.body, WHITE, COL_B, rl.y2, "left", 8)
+        add("youWord", e.myWord, DEBRIEF_SIZES.body, TAG_TEXT_COLOUR[e.myTag || "Red"], COL_YOU_WORD, rl.y2, "left", 18)
       }
-      add("correctLabel", "Correct", ROW_SIZE, WHITE, COL_CORRECT, y2, "left", 12)
-      add("correctWord", e.correctWord, ROW_SIZE, TAG_TEXT_COLOUR[e.correctTag], COL_CORRECT_WORD, y2, "left", 18)
-      cursor += p2
-      // ---- line 3: the one short explanation, where it applies
+      add("correctLabel", "Correct", DEBRIEF_SIZES.body, WHITE, COL_C, rl.y2, "left", 12)
+      add("correctWord", e.correctWord, DEBRIEF_SIZES.body, TAG_TEXT_COLOUR[e.correctTag], COL_D, rl.y2, "left", 18)
+      // ---- line 3: the one short explanation, lighter and smaller; a long sentence wraps and the row has already grown for it
       if (e.explanation) {
-        // about 40 characters fit on a line at this size; a longer sentence wraps (Expectant's) and the row grows to match
-        const lines = Math.max(1, Math.ceil(e.explanation.length / 40))
-        const p3 = pitch(ROW_SIZE) * lines
-        const et = add("explanation", e.explanation, ROW_SIZE, WHITE, LEFT, -(cursor + p3 / 2), "left", wBox)
-        if (lines > 1) {
+        const et = add("explanation", e.explanation, DEBRIEF_SIZES.small, TEXT_SMALL, COL_B, rl.y3, "left", RIGHT - COL_B)
+        if (rl.lines3 > 1) {
           et.horizontalOverflow = HorizontalOverflow.Wrap
-          et.layoutRect = Rect.create(0, wBox, -p3 / 2, p3 / 2)
+          et.layoutRect = Rect.create(0, RIGHT - COL_B, -rl.p3 / 2, rl.p3 / 2)
         }
-        cursor += p3
       }
-      cursor += ROW_GAP
     }
-    cursor += PAD_Y - ROW_GAP
-    const H = cursor
+    const H = lay.height
     this.panelSize = { w: PANEL_W, h: H }
     back.size = new vec2(PANEL_W, H)
     content.getTransform().setLocalPosition(new vec3(0, H / 2, GUTTER_Z)) // top of the content = top of the panel
@@ -663,8 +752,9 @@ export class TriageDebrief extends BaseScriptComponent {
     const lab = global.scene.createSceneObject("ButtonLabel")
     lab.setParent(so)
     lab.getTransform().setLocalPosition(new vec3(0, 0, 0.08))
-    this.addText(lab, "Text", "Restart", 118, WHITE, 0, 0, "center", 24)
+    this.addText(lab, "Text", "Restart", DEBRIEF_SIZES.body, WHITE, 0, 0, "center", 24)
     btn.onTriggerUp.add(() => this.pressRestart())
+    addPressPop(btn, so)
     this.restartObj = root
   }
 

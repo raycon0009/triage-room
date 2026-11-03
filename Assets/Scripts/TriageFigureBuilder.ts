@@ -13,6 +13,7 @@
  * Named scene objects under Casualty_<id>/Body: Skin, Rim, FloorRing, Torso, Head, LegL and LegR (empty anchors that carry the
  * part's box size in their scale, used by the check card and tests), Dot_<id>, TagBand_<id>.
  */
+import { easeOutCubic, tween } from "./TriageUi"
 import { CasualtyId, CASUALTY_TABLE } from "./TriageData"
 import {
   Baked,
@@ -292,12 +293,14 @@ export class TriageFigureBuilder {
     root.setParent(body)
     const T = 14 // band thickness along the torso's long axis
     const col = TAG_BAND_COLOUR[tag] || TAG_BAND_COLOUR.Red
+    const rings: SceneObject[] = []
     const ring = (name: string, w: number, thick: number, c: number[]): void => {
       const part: Part = { name: name, shape: "ring", pos: [0, 0, 0], rot: [0, 0, 0, 1], size: [torso.size[0] + w, thick, torso.size[2] + w], col: c }
       const so = this.addMesh(root, name, this.meshFrom(bakeParts([part], 0, true)), this.material(c))
       const t = so.getTransform()
       t.setLocalPosition(new vec3(torso.pos[0], torso.pos[1], torso.pos[2]))
       t.setLocalRotation(toQuat(torso.rot))
+      rings.push(so)
     }
     if (tag === "Black") {
       ring("Outline", 2, T + 7, [1, 1, 1])
@@ -305,6 +308,19 @@ export class TriageFigureBuilder {
     } else {
       ring("Band", 7, T, col)
     }
+    // the ring grows into place round the casualty (0.3 s, wider to its fitted size, thickness unchanged)
+    const GROW_FROM = 1.7
+    tween(
+      "band:" + id,
+      0.3,
+      (k) => {
+        const g = GROW_FROM + (1 - GROW_FROM) * easeOutCubic(k)
+        for (const r of rings) if (!isNull(r)) r.getTransform().setLocalScale(new vec3(g, 1, g))
+      },
+      null,
+      0,
+      root,
+    )
     return root
   }
 

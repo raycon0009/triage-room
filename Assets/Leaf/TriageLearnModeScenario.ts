@@ -120,9 +120,9 @@ export class TriageLearnModeScenario extends Scenario {
       expect(Math.abs(c.localX) + c.widthCm / 2 <= fit.halfWidth).toBe(true)
     }
     expect(fit.lowestButtonBottom >= -fit.halfHeight).toBe(true)
-    expect(startRowY + 0.85 <= fit.halfHeight).toBe(true)
-    // the title sits under the chip row (not under it, not outside the card)
-    expect(fit.titleTop <= startRowY - 0.85 + 0.5).toBe(true)
+    // the chip row sits directly under the header row (pose + timer) and above the latest-result line, inside the card
+    expect(startRowY + 0.85 <= fit.titleBottom + 0.3).toBe(true)
+    expect(startRowY - 0.85 >= fit.statusTop - 0.4).toBe(true)
     expect(fit.titleTop <= fit.halfHeight).toBe(true)
     cards.closeCard()
 

@@ -12,18 +12,13 @@ import { FlexAlign, FlexDirection, FlexJustify } from "SpectaclesUIKit.lspkg/Scr
 import { BackPlate } from "SpectaclesUIKit.lspkg/Scripts/BackPlate"
 import { Button } from "SpectaclesUIKit.lspkg/Scripts/Components/Button/Button"
 import Event, { PublicApi } from "SpectaclesInteractionKit.lspkg/Utils/Event"
+import { GAP, PAD, TEXT_SMALL, addPressPop, hidePanel, showPanel, sizesAt } from "./TriageUi"
 
-const FONT_SIZE_SCALE = 1.0
-type TextRole = "Title2" | "Headline2" | "Button" | "Caption"
-const TYPE_SCALE: Record<TextRole, { size: number; weight: number }> = {
-  Title2: { size: 93, weight: 700 },
-  Headline2: { size: 48, weight: 700 },
-  Button: { size: 52, weight: 500 },
-  Caption: { size: 52, weight: 500 },
-}
+/** The start panel is read from about 80 cm; the shared three sizes (title, body, small) scaled to that distance. */
+const SIZES = sizesAt(80)
+type TextRole = "title" | "body" | "small"
 function applyTextRole(t: Text, role: TextRole): void {
-  t.size = TYPE_SCALE[role].size * FONT_SIZE_SCALE
-  ;(t as Text & { weight?: number }).weight = TYPE_SCALE[role].weight
+  t.size = SIZES[role]
 }
 
 const BUTTON_LABEL_Z = 0.08
@@ -47,7 +42,15 @@ export class TriageStartUI extends BaseScriptComponent {
   learnLabel: string = "Learn"
 
   @input
-  @hint("Small line under the button")
+  @hint("One short line under the Learn button")
+  learnLine: string = "Learn — shows the START steps as you go"
+
+  @input
+  @hint("One short line under the Drill button")
+  drillLine: string = "Drill — the real thing, no hints"
+
+  @input
+  @hint("Small line at the bottom")
   footnoteText: string = "Training drill, not certification"
 
   @input
@@ -89,21 +92,23 @@ export class TriageStartUI extends BaseScriptComponent {
     flex.direction = FlexDirection.Column
     flex.alignItems = FlexAlign.Center
     flex.justifyContent = FlexJustify.Center
-    flex.rowGap = 1.0
-    flex.paddingTop = 1.6
-    flex.paddingBottom = 1.6
-    flex.paddingLeft = 2.0
-    flex.paddingRight = 2.0
+    flex.rowGap = GAP
+    flex.paddingTop = PAD * 1.5
+    flex.paddingBottom = PAD * 1.5
+    flex.paddingLeft = PAD * 1.5
+    flex.paddingRight = PAD * 1.5
     flex.width = -1
     flex.height = -1
 
-    const wText = Math.max(this.buttonWidthCm + 6, 22)
-    this.addText(content, flex, "Title", this.titleText, "Headline2", wText, 3.2)
+    const wText = 24
+    this.addText(content, flex, "Title", this.titleText, "title", wText, 3.6)
 
     this.addModeButton(content, "LearnButton", this.learnLabel, "learn")
+    this.addText(content, flex, "LearnLine", this.learnLine, "small", wText, 2.0, TEXT_SMALL)
     this.startButton = this.addModeButton(content, "StartButton", this.drillLabel, "drill")
+    this.addText(content, flex, "DrillLine", this.drillLine, "small", wText, 2.0, TEXT_SMALL)
 
-    this.addText(content, flex, "Footnote", this.footnoteText, "Caption", wText, 2.0)
+    this.addText(content, flex, "Footnote", this.footnoteText, "small", wText, 2.0, TEXT_SMALL)
   }
 
   private addModeButton(content: SceneObject, name: string, label: string, mode: string): Button {
@@ -116,6 +121,7 @@ export class TriageStartUI extends BaseScriptComponent {
     btnItem.overrideWidth = this.buttonWidthCm
     btnItem.overrideHeight = this.buttonHeightCm
     btn.onTriggerUp.add(() => this.pressStart(mode))
+    addPressPop(btn, btnSO)
     return btn
   }
 
@@ -127,21 +133,21 @@ export class TriageStartUI extends BaseScriptComponent {
   }
 
   hide(): void {
-    this.sceneObject.enabled = false
+    hidePanel(this.sceneObject)
   }
 
   show(): void {
     this.pressed = false
-    this.sceneObject.enabled = true
+    showPanel(this.sceneObject)
   }
 
-  private addText(parent: SceneObject, flex: FlexLayout, name: string, text: string, role: TextRole, widthCm: number, heightCm: number): void {
+  private addText(parent: SceneObject, flex: FlexLayout, name: string, text: string, role: TextRole, widthCm: number, heightCm: number, color?: vec4): void {
     const so = global.scene.createSceneObject(name)
     so.setParent(parent)
     const t = so.createComponent("Component.Text") as Text
     t.text = text
     t.depthTest = true
-    t.textFill.color = this.textColor
+    t.textFill.color = color ? color : this.textColor
     applyTextRole(t, role)
     t.horizontalAlignment = HorizontalAlignment.Center
     t.verticalAlignment = VerticalAlignment.Center
@@ -160,7 +166,7 @@ export class TriageStartUI extends BaseScriptComponent {
     const t = so.createComponent("Component.Text") as Text
     t.text = text
     t.depthTest = true
-    applyTextRole(t, "Button")
+    applyTextRole(t, "body")
     t.horizontalAlignment = HorizontalAlignment.Center
     t.verticalAlignment = VerticalAlignment.Center
     t.horizontalOverflow = HorizontalOverflow.Overflow

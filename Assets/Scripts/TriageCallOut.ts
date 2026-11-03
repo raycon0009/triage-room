@@ -19,11 +19,16 @@ import { TriageRunClock } from "./TriageRunClock"
 import { CasualtyId } from "./TriageData"
 import { Pose, STANDING_POSE, lerpPose, walkPose } from "./TriageFigurePose"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
+import { GAP, PAD, addPressPop, easeInOutCubic, hidePanel, hidePanelNow, showPanel, sizesAt } from "./TriageUi"
 
 export type WalkPhase = "idle" | "standing" | "walking" | "arrived"
 
 const BUTTON_LABEL_Z = 0.08
 const CONTENT_Z = 0.6
+/** Seconds to get up to full walking speed, and the distance (cm) over which the walker slows down to stop at the circle. */
+const WALK_RAMP_SECONDS = 0.7
+const WALK_BRAKE_CM = 70
+const MIN_SPEED_RATIO = 0.15
 
 @component
 export class TriageCallOut extends BaseScriptComponent {
@@ -82,6 +87,8 @@ export class TriageCallOut extends BaseScriptComponent {
   @ui.group_end
 
   private panel: SceneObject | null = null
+  /** The button is on (it fades out over a moment after it is pressed, so `panel.enabled` lags this). */
+  private panelShown = false
   private used = false
   private phase: WalkPhase = "idle"
   private phaseTime = 0
@@ -121,7 +128,7 @@ export class TriageCallOut extends BaseScriptComponent {
     return this.walkerId
   }
   isButtonVisible(): boolean {
-    return !!this.panel && this.panel.enabled
+    return !!this.panel && this.panelShown
   }
 
   /** Horizontal distance (cm) from the walker to the centre of the green circle; -1 if there is no walker yet. */
@@ -173,17 +180,20 @@ export class TriageCallOut extends BaseScriptComponent {
     this.walker = null
     this.walkerId = null
     this.figure = null
-    if (this.panel) this.panel.enabled = false
+    if (this.panel) hidePanelNow(this.panel)
+    this.panelShown = false
   }
 
   private onRunStarted(): void {
     this.used = false
     this.phase = "idle"
-    if (this.panel) this.panel.enabled = true
+    if (this.panel) showPanel(this.panel)
+    this.panelShown = true
   }
 
   private hidePanel(): void {
-    if (this.panel) this.panel.enabled = false
+    if (this.panel && this.panelShown) hidePanel(this.panel)
+    this.panelShown = false
   }
 
   private zoneCentre(): vec3 {
@@ -207,7 +217,7 @@ export class TriageCallOut extends BaseScriptComponent {
     this.phaseTime += dt
     if (this.phase === "standing") {
       const k = Math.min(1, this.phaseTime / this.standSeconds)
-      this.blendToStanding(k * k * (3 - 2 * k))
+      this.blendToStanding(easeInOutCubic(k))
       this.faceTowards(this.dest, dt, 6)
       if (k >= 1) {
         this.setPhase("walking")
@@ -218,16 +228,20 @@ export class TriageCallOut extends BaseScriptComponent {
       const dx = this.dest.x - p.x
       const dz = this.dest.z - p.z
       const dist = Math.sqrt(dx * dx + dz * dz)
-      const step = this.walkSpeedCmPerSec * dt
+      // ease in from standing still and ease out into the circle (never quite zero, so the walker always arrives)
+      const ramp = easeInOutCubic(Math.min(1, this.phaseTime / WALK_RAMP_SECONDS))
+      const brake = easeInOutCubic(Math.min(1, dist / WALK_BRAKE_CM))
+      const ratio = Math.max(MIN_SPEED_RATIO, ramp * brake)
+      const step = this.walkSpeedCmPerSec * ratio * dt
       this.faceTowards(this.dest, dt, 8)
       if (dist <= step) {
         t.setWorldPosition(new vec3(this.dest.x, this.baseY, this.dest.z))
         this.arrive()
         return
       }
-      this.gait += dt * 7
-      t.setWorldPosition(new vec3(p.x + (dx / dist) * step, this.baseY + Math.abs(Math.sin(this.gait)) * 1.2, p.z + (dz / dist) * step))
-      this.figure.applyPose(this.walker, this.walkerId as string, walkPose(Math.sin(this.gait)))
+      this.gait += dt * 7 * Math.max(0.35, ratio)
+      t.setWorldPosition(new vec3(p.x + (dx / dist) * step, this.baseY + Math.abs(Math.sin(this.gait)) * 1.2 * ratio, p.z + (dz / dist) * step))
+      this.figure.applyPose(this.walker, this.walkerId as string, walkPose(Math.sin(this.gait) * Math.max(0.3, ratio)))
     }
   }
 
@@ -278,10 +292,11 @@ export class TriageCallOut extends BaseScriptComponent {
     flex.direction = FlexDirection.Column
     flex.alignItems = FlexAlign.Center
     flex.justifyContent = FlexJustify.Center
-    flex.paddingTop = 1.2
-    flex.paddingBottom = 1.2
-    flex.paddingLeft = 1.4
-    flex.paddingRight = 1.4
+    flex.rowGap = GAP
+    flex.paddingTop = PAD
+    flex.paddingBottom = PAD
+    flex.paddingLeft = PAD
+    flex.paddingRight = PAD
     flex.width = -1
     flex.height = -1
 
@@ -295,7 +310,7 @@ export class TriageCallOut extends BaseScriptComponent {
     const t = lab.createComponent("Component.Text") as Text
     t.text = this.buttonLabel
     t.depthTest = true
-    t.size = 62
+    t.size = sizesAt(80).body
     t.textFill.color = this.textColor
     t.horizontalAlignment = HorizontalAlignment.Center
     t.verticalAlignment = VerticalAlignment.Center
@@ -306,6 +321,7 @@ export class TriageCallOut extends BaseScriptComponent {
     item.overrideWidth = this.buttonWidthCm
     item.overrideHeight = this.buttonHeightCm
     btn.onTriggerUp.add(() => this.pressCallOut())
+    addPressPop(btn, so)
     this.panel.enabled = false
   }
 }

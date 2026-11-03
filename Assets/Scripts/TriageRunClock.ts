@@ -15,6 +15,7 @@ import { BackPlate } from "SpectaclesUIKit.lspkg/Scripts/BackPlate"
 import Event, { PublicApi } from "SpectaclesInteractionKit.lspkg/Utils/Event"
 import { TriageMain } from "./TriageMain"
 import { TriageCheckCards } from "./TriageCheckCards"
+import { GAP, PAD, TEXT_SMALL, hidePanel, hidePanelNow, showPanel, sizesAt } from "./TriageUi"
 
 export type EndReason = "time" | "all-tagged"
 
@@ -86,6 +87,8 @@ export class TriageRunClock extends BaseScriptComponent {
   private chimed = false
   private chimeCount = 0
   private timesUp: SceneObject | null = null
+  /** The Time's up panel is on (it fades out over a moment, so its `enabled` lags this). */
+  private timesUpOn = false
 
   onAwake() {
     this.duration = this.durationSeconds
@@ -132,12 +135,13 @@ export class TriageRunClock extends BaseScriptComponent {
     return this.duration
   }
   isTimesUpVisible(): boolean {
-    return !!this.timesUp && this.timesUp.enabled
+    return !!this.timesUp && this.timesUpOn
   }
 
   /** The debrief hides the "Time's up" panel a few seconds after it opens (it is in the way of the map's labels). */
   hideTimesUp(): void {
-    if (this.timesUp) this.timesUp.enabled = false
+    if (this.timesUp && this.timesUpOn) hidePanel(this.timesUp)
+    this.timesUpOn = false
   }
 
   /** "m:ss", rounded up so the display reads 0:00 only at the very end. */
@@ -172,7 +176,10 @@ export class TriageRunClock extends BaseScriptComponent {
     this.endReason = reason
     this.cards.setLocked(true)
     this.cards.setTimerText("")
-    if (reason === "time" && this.timesUp) this.timesUp.enabled = true
+    if (reason === "time" && this.timesUp) {
+      showPanel(this.timesUp)
+      this.timesUpOn = true
+    }
     print("TRIAGE_RUN_ENDED " + reason + " elapsed=" + Math.round(this.elapsed * 10) / 10)
     this._onRunEnded.invoke(reason)
   }
@@ -185,7 +192,8 @@ export class TriageRunClock extends BaseScriptComponent {
     this.ended = false
     this.endReason = null
     this.running = true
-    if (this.timesUp) this.timesUp.enabled = false
+    if (this.timesUp) hidePanelNow(this.timesUp)
+    this.timesUpOn = false
     this.cards.setLocked(false)
     this.cards.setTimerText(this.formatRemaining())
     print("TRIAGE_TIMER_STARTED " + this.duration)
@@ -199,7 +207,8 @@ export class TriageRunClock extends BaseScriptComponent {
     this.chimed = false
     this.duration = this.durationSeconds
     this.chimeAt = this.chimeAtSeconds
-    if (this.timesUp) this.timesUp.enabled = false
+    if (this.timesUp) hidePanelNow(this.timesUp)
+    this.timesUpOn = false
     this.cards.setLocked(false)
     this.cards.setTimerText("")
   }
@@ -244,27 +253,29 @@ export class TriageRunClock extends BaseScriptComponent {
     flex.direction = FlexDirection.Column
     flex.alignItems = FlexAlign.Center
     flex.justifyContent = FlexJustify.Center
-    flex.rowGap = 0.8
-    flex.paddingTop = 2
-    flex.paddingBottom = 2
-    flex.paddingLeft = 3
-    flex.paddingRight = 3
+    flex.rowGap = GAP
+    flex.paddingTop = PAD * 1.5
+    flex.paddingBottom = PAD * 1.5
+    flex.paddingLeft = PAD * 1.5
+    flex.paddingRight = PAD * 1.5
     flex.width = -1
     flex.height = -1
-    this.addText(content, "TimesUpTitle", this.timesUpText, 130, 30, 6.4)
-    this.addText(content, "TimesUpSub", this.timesUpSubText, 62, 30, 2.6)
+    // the one title size, doubled (it is the one thing to read here), over a body-size line
+    const sz = sizesAt(85)
+    this.addText(content, "TimesUpTitle", this.timesUpText, sz.title * 2, 30, 6.4, this.textColor)
+    this.addText(content, "TimesUpSub", this.timesUpSubText, sz.body, 30, 2.6, TEXT_SMALL)
     root.enabled = false
     this.timesUp = root
   }
 
-  private addText(parent: SceneObject, name: string, text: string, size: number, widthCm: number, heightCm: number): void {
+  private addText(parent: SceneObject, name: string, text: string, size: number, widthCm: number, heightCm: number, color: vec4): void {
     const so = global.scene.createSceneObject(name)
     so.setParent(parent)
     const t = so.createComponent("Component.Text") as Text
     t.text = text
     t.depthTest = true
     t.size = size
-    t.textFill.color = this.textColor
+    t.textFill.color = color
     t.horizontalAlignment = HorizontalAlignment.Center
     t.verticalAlignment = VerticalAlignment.Center
     t.horizontalOverflow = HorizontalOverflow.Overflow

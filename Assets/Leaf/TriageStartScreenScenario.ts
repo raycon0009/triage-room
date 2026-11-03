@@ -39,9 +39,17 @@ export class TriageStartScreenScenario extends Scenario {
     expect(byText["Learn"] === undefined).toBe(false)
     expect(byText["Training drill, not certification"] === undefined).toBe(false)
     // light text, and the small line is not tiny (it was size 38)
-    for (const s of ["Triage Room", "Learn", "Drill", "Training drill, not certification"]) {
+    for (const s of ["Triage Room", "Learn", "Drill"]) {
       const c = byText[s].textFill.color
       expect(c.r > 0.9 && c.g > 0.9 && c.b > 0.9).toBe(true)
+      expect(byText[s].size).toBeGreaterThan(45)
+    }
+    // the small lines are the quieter light blue-grey (still light on dark) and still readable
+    const lines = ["Training drill, not certification", "Learn — shows the START steps as you go", "Drill — the real thing, no hints"]
+    for (const s of lines) {
+      expect(byText[s] === undefined).toBe(false) // Learn and Drill each explained in one short line
+      const c = byText[s].textFill.color
+      expect(c.r > 0.75 && c.g > 0.8 && c.b > 0.9).toBe(true)
       expect(byText[s].size).toBeGreaterThan(45)
     }
     expect(tm.scenarioUI.isVisible()).toBe(false) // the scenario line comes after Start

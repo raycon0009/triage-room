@@ -1910,7 +1910,8 @@
   ScriptAsset: !<reference> 4a21e1fd-959a-42ac-9942-a4e8618496ac
   ScriptInputsDefault:
     titleText: true
-    startLabel: true
+    drillLabel: true
+    learnLabel: true
     footnoteText: true
     buttonWidthCm: true
     buttonHeightCm: true
@@ -1920,7 +1921,8 @@
   ScriptInputs:
     "":
       titleText: Triage Room
-      startLabel: Start
+      drillLabel: Drill
+      learnLabel: Learn
       footnoteText: "Training drill, not certification"
       buttonWidthCm: !<float> 14.000000
       buttonHeightCm: 5.500000

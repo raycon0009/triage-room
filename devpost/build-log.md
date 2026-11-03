@@ -374,3 +374,33 @@ Taken with a temporary demo script that tagged X and C (script and scene object 
 
 ### Capture
 `devpost/captures/step4-learn-card.jpg`: Learn card for the slumped casualty after Breathing and Rate: Walks?, Breath?, Rate done, Pulse highlighted with a bar, Obeys? dim. Taken with a temporary LEAF scenario (deleted).
+
+## Polish: consistent UI boards and calm animations (3 Nov 2026)
+
+**Status: gate passed.** Node: start-engine 12/12, scoring 23/23, figures 70/70, learn-chips 15/15, new debrief-layout 12/12. LEAF 20/20 (19 + new `triage-debrief-reveal`), each run alone on the final code.
+
+### Done
+1. One style: shared `TriageUi.ts` (UI Kit backplate style, padding, gap) and `TriageUiSizes.ts` (one font, three sizes: title / body / small, scaled by distance so the small size stays readable; debrief boosted x1.4).
+2. Card hierarchy: header row (pose left, timer right), Learn chip row directly under it, check buttons in a column, latest result prominent, tag buttons separated. Card width unchanged.
+3. Tag buttons: colour plus word, equal size.
+4. Debrief: summary and NOT REACHED in title size, rows as a table (`TriageDebriefLayout.ts`, pure and tested in Node), explanations smaller and lighter. All 81 status combinations fit; nobody-reached now fits (was 0.15 deg too tall).
+5. Start screen: "Learn — shows the START steps as you go" and "Drill — the real thing, no hints".
+7. Buttons: UI Kit hover plus a press pop (0.05 s down, 0.09 s back).
+8. Cards and panels fade and scale in (0.24 s) and out (0.18 s).
+9. Tag band ring grows into place (0.3 s).
+10. Walker: ease in/out (`easeInOutCubic`) for the stand-up and walk.
+11. Debrief reveal: Time's up, short pause (0.4 s), panel, then every NOT REACHED row and the marker over the real person together, then the other rows one by one.
+
+### Skipped
+- 6: no `devpost/user-tests.md` exists, so nothing to add.
+
+### Tests changed or added (all because the boards deliberately changed)
+- New LEAF `triage-debrief-reveal`: nobody reached (reveal order, fit inside the view limits, readable); mixed run (missed first, then the tagged row). New Node `debrief-layout.test.mjs`.
+- Updated: timer text now read from the header (`getCardLabels().timer`); explanation and small lines are light blue-grey, not pure white; NOT REACHED ties with the summary at title size; smallest debrief text limit 116 -> 100; Learn chip row checked under the header; all-tagged waits for the reveal; start screen checks the two new lines; pose-variation pins the viewer far away so proximity cannot swap the open card.
+- `triage-debrief-all-tagged` failed twice in a row: my first fix (waiting for the reveal) was a wrong guess; the real cause was the explanation colour check. The second fix passed.
+
+### Not proven
+- Motion timings were checked as numbers and in tests, not by eye on glasses. Hover highlight is the UI Kit's own.
+
+### Captures
+`devpost/captures/polish-learn-card.jpg`, `devpost/captures/polish-debrief.jpg` (temporary LEAF scenarios, deleted).

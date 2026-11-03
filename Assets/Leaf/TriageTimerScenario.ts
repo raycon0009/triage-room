@@ -34,7 +34,7 @@ export class TriageTimerScenario extends Scenario {
     expect(cards.getTimerText()).toBe(clock.formatRemaining())
     await pressButton("OpenButton_A")
     expect(cards.isCardVisible()).toBe(true)
-    let status = cards.getCardLabels().status
+    let status = cards.getCardLabels().timer
     expect(status.indexOf(clock.formatRemaining()) >= 0).toBe(true)
     expect(status.indexOf("2:5") >= 0 || status.indexOf("3:0") >= 0).toBe(true)
     await pressButton("OpenButton_A") // Close
@@ -54,7 +54,7 @@ export class TriageTimerScenario extends Scenario {
     expect(clock.getChimeCount()).toBe(1) // once only
     // the card shows the running time
     await pressButton("OpenButton_A")
-    status = cards.getCardLabels().status
+    status = cards.getCardLabels().timer
     expect(status.indexOf("0:1") >= 0 || status.indexOf("0:2") >= 0).toBe(true)
     cards.closeCard()
     expect(clock.isEnded()).toBe(false)

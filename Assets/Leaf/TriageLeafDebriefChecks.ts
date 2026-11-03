@@ -10,8 +10,8 @@ import {TriageDebrief} from "../Scripts/TriageDebrief"
 /** The preview's field of view seen from the start position, with a little margin (measured: about 16 deg to each side, 18 up / down). */
 export const VIEW_HALF_H_DEG = 16
 export const VIEW_HALF_V_DEG = 17
-/** Step 4's explanation lines were size 58; the smallest text now must be at least twice that. */
-export const MIN_TEXT_SIZE = 116
+/** Polish: the smallest debrief text is the shared small size at 1.2 m (x1.4) = 101; it must stay at least this large. */
+export const MIN_TEXT_SIZE = 100
 
 function deg(rad: number): number {
   return (rad * 180) / Math.PI
@@ -87,7 +87,7 @@ export function assertPanelReadableAndInView(debrief: TriageDebrief, tm: TriageM
   }
   expect(summaryMax).toBeGreaterThan(maxRow) // the summary is the largest of the ordinary text
   if (hasMissed) {
-    expect(debrief.getMaxTextSize()).toBeGreaterThan(summaryMax) // NOT REACHED is the biggest text on the panel
+    expect(debrief.getMaxTextSize()).toBeGreaterThan(summaryMax - 0.5) // NOT REACHED is as big as the summary (both title size), the biggest text on the panel
   }
 
   // every text lies inside the panel (measured with the text's own bounding box)

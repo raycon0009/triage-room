@@ -89,7 +89,11 @@ export class TriageDebriefAllTaggedScenario extends Scenario {
     expect(clock.isEnded()).toBe(true)
     expect(clock.getEndReason()).toBe("all-tagged")
     expect(debrief.getReason()).toBe("all-tagged")
-    await sleep(400)
+    for (let i = 0; i < 60 && !debrief.isRevealDone(); i++) {
+      await sleep(100) // the panel and its rows come in one by one
+    }
+    expect(debrief.isRevealDone()).toBe(true)
+    await sleep(300)
 
     // ---- the entries: nobody missed, so the rows keep their order, numbered 1-4
     const entries = debrief.getEntries()
@@ -140,10 +144,13 @@ export class TriageDebriefAllTaggedScenario extends Scenario {
     expect(rc.r).toBeGreaterThan(0.9)
     expect(rc.g).toBeLessThan(0.6) // red
     expect(rc.b).toBeLessThan(0.6)
-    for (const name of ["name", "stats", "youLabel", "correctLabel", "explanation", "number"]) {
+    for (const name of ["name", "stats", "youLabel", "correctLabel", "number"]) {
       const c = debrief.getRowTextColour("A", name) as vec4
       expect(c.r > 0.95 && c.g > 0.95 && c.b > 0.95).toBe(true)
     }
+    // the explanation line is the quieter small text: still light (light blue-grey), never dark
+    const ex = debrief.getRowTextColour("A", "explanation") as vec4
+    expect(ex.r > 0.75 && ex.g > 0.8 && ex.b > 0.9).toBe(true)
     for (const e of entries) {
       if (e.id !== "A" && e.id !== walkerId) {
         expect(e.status).toBe("correct")

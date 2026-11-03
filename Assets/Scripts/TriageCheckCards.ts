@@ -19,6 +19,7 @@ import Event, { PublicApi } from "SpectaclesInteractionKit.lspkg/Utils/Event"
 import { TriageMain } from "./TriageMain"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
 import { CASUALTY_TABLE, CasualtyId } from "./TriageData"
+import { FONT_AT_CARD, PAD, TEXT_SMALL, addPressPop, hidePanel, hidePanelNow, showPanel } from "./TriageUi"
 import { CHECK_LABEL, CHIP_LABELS, CheckId, Findings, LearnChip, StartTag, TAG_WORD, checkResultText, evaluateStart, findingsFromDef, learnChips } from "./TriageStartEngine"
 
 export interface CasualtyRecord {
@@ -43,18 +44,22 @@ export interface CasualtyRecord {
 
 type OpenReason = "proximity" | "button"
 
-const TYPE_BUTTON = 44
-const TYPE_TITLE = 50
-const TYPE_STATUS = 46
-const TYPE_TAG = 40
+// the three shared sizes (see TriageUi): title = pose, body = buttons and the latest result, small = status, chips, tags
+const TYPE_BUTTON = FONT_AT_CARD.body
+const TYPE_TITLE = FONT_AT_CARD.title
+const TYPE_STATUS = FONT_AT_CARD.small
+const TYPE_TAG = FONT_AT_CARD.small
 const BUTTON_LABEL_Z = 0.08
 const CONTENT_Z = 0.6
 
 const CHECK_W = 25
 const CHECK_H = 26.5
 const TAG_H = 7
-const TAG_GAP = 0.8
+const TAG_GAP = 1.4 // clear space between the check card and the tag row
 const CHECK_BTN_H = 4.4
+/** gap between the rows of the column: tighter in Learn, where the chip row takes one more row */
+const DRILL_GAP = 0.4
+const LEARN_GAP = 0.25
 // extents of the whole card (check panel + tag panel) from the check panel's centre
 const CARD_TOP = CHECK_H / 2
 const CARD_BOTTOM = CHECK_H / 2 + TAG_GAP + TAG_H
@@ -70,8 +75,11 @@ const TAG_COLOUR: { [k in StartTag]: vec4 } = {
 const CHIP_W = 4.4
 const CHIP_GAP = 0.3
 const CHIP_H = 1.7
-const CHIP_TEXT = 30
-const CHIP_TEXT_DECIDED = 24
+const CHIP_TEXT = FONT_AT_CARD.small
+const CHIP_TEXT_DECIDED = 30 // the only exception to the three sizes: a tag word (EXPECTANT) must fit one 4.4 cm chip
+/** the newest result is the brightest; earlier results stay a quieter light green */
+const LATEST_COLOUR = new vec4(0.75, 1, 0.85, 1)
+const DONE_COLOUR = new vec4(0.62, 0.86, 0.72, 1)
 const CHIP_CURRENT = [0.55, 0.95, 1.0]
 const CHIP_DONE_TEXT = new vec4(0.82, 0.9, 1, 1)
 const CHIP_DIM_TEXT = new vec4(0.5, 0.56, 0.66, 1)
@@ -165,6 +173,12 @@ export class TriageCheckCards extends BaseScriptComponent {
   private tagPanel!: SceneObject
   private titleText!: Text
   private statusText!: Text
+  private timerLabel!: Text
+  private tagStrips: { [tag: string]: SceneObject } = {}
+  /** the card is logically open (its object fades out over a moment after closing, so `cardRoot.enabled` lags this) */
+  private cardOpen = false
+  private lastCheck: { [id: string]: CheckId | null } = {}
+  private chipItem: FlexItem | null = null
   private cardFlex: FlexLayout | null = null
   private titleItem: FlexItem | null = null
   private statusItem: FlexItem | null = null
@@ -242,11 +256,11 @@ export class TriageCheckCards extends BaseScriptComponent {
   }
 
   isCardVisible(): boolean {
-    return this.cardRoot.enabled
+    return this.cardOpen
   }
 
   isTagPanelVisible(): boolean {
-    return this.cardRoot.enabled && this.tagPanel.enabled
+    return this.cardOpen && this.tagPanel.enabled
   }
 
   /** Current text of the four check buttons and the tag buttons. */
@@ -256,6 +270,7 @@ export class TriageCheckCards extends BaseScriptComponent {
     for (const k in this.tagButtons) out[k] = this.tagButtons[k].label.text
     out.title = this.titleText.text
     out.status = this.statusText.text
+    out.timer = this.timerLabel ? this.timerLabel.text : ""
     return out
   }
 
@@ -280,9 +295,10 @@ export class TriageCheckCards extends BaseScriptComponent {
     return this.timerText
   }
 
+  /** The header row's timer (top right of the card, beside the pose); the status line shows the latest result. */
   private showStatus(): void {
-    if (!this.statusText) return
-    this.statusText.text = this.timerText ? this.statusBase + "   ·   " + this.timerText : this.statusBase
+    if (this.statusText) this.statusText.text = this.statusBase
+    if (this.timerLabel) this.timerLabel.text = this.timerText
   }
 
   /**
@@ -316,19 +332,23 @@ export class TriageCheckCards extends BaseScriptComponent {
   openCard(id: string, reason: OpenReason): void {
     if (this.locked || !this.main.isStarted() || !this.records[id] || this.records[id].tag !== null) return
     if (this.openId === id) return
+    const wasOpen = this.cardOpen
     this.openId = id
     this.openReason = reason
     this.dismissed[id] = false
-    this.refreshCard()
-    this.cardRoot.enabled = true
+    this.refreshCard(wasOpen)
+    this.cardOpen = true
     this.placeCard(true)
+    if (!wasOpen) showPanel(this.cardRoot) // fades and scales in; switching to another casualty's card just updates it
     this.refreshDots()
   }
 
   closeCard(): void {
+    const was = this.cardOpen
     this.openId = null
     this.openReason = null
-    this.cardRoot.enabled = false
+    this.cardOpen = false
+    if (was) hidePanel(this.cardRoot)
     if (this.line) this.line.enabled = false
     this.refreshDots()
   }
@@ -343,6 +363,7 @@ export class TriageCheckCards extends BaseScriptComponent {
     if (check === "rate" && this.airwayInsteadOfRate(id)) check = "airway"
     if (check === "airway" && !this.airwayInsteadOfRate(id)) return
     rec.presses++
+    this.lastCheck[id] = check
     if (rec.checks.indexOf(check) < 0) rec.checks.push(check)
     print("TRIAGE_CHECK " + id + " " + check + " -> " + checkResultText(f, check))
     this.refreshCard()
@@ -411,6 +432,7 @@ export class TriageCheckCards extends BaseScriptComponent {
     this.records = {}
     this.dismissed = {}
     this.standing = {}
+    this.lastCheck = {}
     this.closeCard()
     const state = this.main.getRunState()
     for (const c of state.casualties) {
@@ -689,14 +711,24 @@ export class TriageCheckCards extends BaseScriptComponent {
 
   // ------------------------------------------------------------------ card refresh
 
-  private refreshCard(): void {
+  private refreshCard(animateTag: boolean = false): void {
     const id = this.openId
     if (!id) return
-    const def = CASUALTY_TABLE[id]
     const f = this.findings(id)
     const rec = this.records[id]
     this.titleText.text = this.main.getCasualtyPose(id).label
-    this.statusBase = f.walks ? "Can walk: Yes" : "Can walk: No"
+    // the latest result, prominent: what the last check showed (before any check: whether they can walk)
+    const last = this.lastCheck[id] ? (this.lastCheck[id] as CheckId) : null
+    if (last && rec.checks.indexOf(last) >= 0) {
+      const r = checkResultText(f, last)
+      this.statusBase = r === "—" ? CHECK_LABEL[last] + ": —" : r
+      this.statusText.size = TYPE_BUTTON
+      this.statusText.textFill.color = LATEST_COLOUR
+    } else {
+      this.statusBase = f.walks ? "Can walk: Yes" : "Can walk: No"
+      this.statusText.size = TYPE_STATUS
+      this.statusText.textFill.color = TEXT_SMALL
+    }
     this.showStatus()
 
     const names: { key: string; check: CheckId }[] = [
@@ -710,7 +742,7 @@ export class TriageCheckCards extends BaseScriptComponent {
       if (rec.checks.indexOf(n.check) >= 0) {
         const r = checkResultText(f, n.check)
         slot.label.text = r === "—" ? CHECK_LABEL[n.check] + ": —" : r
-        slot.label.textFill.color = new vec4(0.7, 1, 0.8, 1)
+        slot.label.textFill.color = n.check === last ? LATEST_COLOUR : DONE_COLOUR
       } else {
         slot.label.text = CHECK_LABEL[n.check]
         slot.label.textFill.color = this.textColor
@@ -719,7 +751,12 @@ export class TriageCheckCards extends BaseScriptComponent {
     this.applyMode()
     if (this.learnShown) this.updateChips(f, rec.checks)
     const res = evaluateStart(f, rec.checks)
-    this.tagPanel.enabled = res.decided
+    if (res.decided && !this.tagPanel.enabled) {
+      if (animateTag) showPanel(this.tagPanel)
+      else this.tagPanel.enabled = true
+    } else if (!res.decided && this.tagPanel.enabled) {
+      hidePanelNow(this.tagPanel)
+    }
   }
 
   // ------------------------------------------------------------------ tagging visuals
@@ -792,6 +829,7 @@ export class TriageCheckCards extends BaseScriptComponent {
         this.openCard(id, "button")
       }
     })
+    addPressPop(btn, btnSO)
     return { root: root, label: label, button: btn, word: null }
   }
 
@@ -814,18 +852,35 @@ export class TriageCheckCards extends BaseScriptComponent {
     flex.direction = FlexDirection.Column
     flex.alignItems = FlexAlign.Center
     flex.justifyContent = FlexJustify.Center
-    flex.rowGap = 0.5
-    flex.paddingTop = 1.0
-    flex.paddingBottom = 1.0
-    flex.paddingLeft = 1.0
-    flex.paddingRight = 1.0
+    flex.rowGap = DRILL_GAP
+    flex.paddingTop = PAD
+    flex.paddingBottom = PAD
+    flex.paddingLeft = PAD
+    flex.paddingRight = PAD
     flex.width = CHECK_W
     flex.height = CHECK_H
     this.cardFlex = flex
 
+    // header row: the pose at the left, the timer at the right (same row, same line)
     this.titleText = this.addText(content, "Title", "", TYPE_TITLE, CHECK_W - 2, 2.4)
-    this.statusText = this.addText(content, "Status", "", TYPE_STATUS, CHECK_W - 2, 1.8)
+    this.titleText.horizontalAlignment = HorizontalAlignment.Left
     this.titleItem = this.titleText.sceneObject.getComponent(FlexItem.getTypeName()) as FlexItem
+    const timerObj = global.scene.createSceneObject("Timer")
+    timerObj.setParent(this.titleText.sceneObject)
+    timerObj.getTransform().setLocalPosition(new vec3(0, 0, 0))
+    this.timerLabel = timerObj.createComponent("Component.Text") as Text
+    this.timerLabel.depthTest = true
+    this.timerLabel.size = TYPE_BUTTON
+    this.timerLabel.textFill.color = this.textColor
+    this.timerLabel.horizontalAlignment = HorizontalAlignment.Right
+    this.timerLabel.verticalAlignment = VerticalAlignment.Center
+    this.timerLabel.horizontalOverflow = HorizontalOverflow.Overflow
+    this.timerLabel.verticalOverflow = VerticalOverflow.Overflow
+    this.timerLabel.layoutRect = Rect.create(CHECK_W / 2 - 1 - 6, CHECK_W / 2 - 1, -1.2, 1.2)
+    // Learn mode: the five step chips come directly under the header (an empty flex item holds their place)
+    this.buildChipRow(content)
+    // the latest result (before any check: whether they can walk)
+    this.statusText = this.addText(content, "Status", "", TYPE_STATUS, CHECK_W - 2, 1.8)
     this.statusItem = this.statusText.sceneObject.getComponent(FlexItem.getTypeName()) as FlexItem
     const slots = ["breathing", "second", "pulse", "commands"]
     const labels = ["Breathing?", "Breathing rate", "Pulse / refill", "Follows commands?"]
@@ -842,11 +897,9 @@ export class TriageCheckCards extends BaseScriptComponent {
       item.overrideHeight = CHECK_BTN_H
       const check = checks[i]
       btn.onTriggerUp.add(() => this.pressCheck(check))
+      addPressPop(btn, so)
       this.checkButtons[slots[i]] = { button: btn, label: label, obj: so }
     }
-
-    // --- Learn mode chip row (built once; shown only in Learn mode)
-    this.buildChipRow()
 
     // --- tag panel (below the check panel; only enabled once a step has decided the tag)
     this.tagPanel = global.scene.createSceneObject("TagPanel")
@@ -869,24 +922,32 @@ export class TriageCheckCards extends BaseScriptComponent {
     tflex.paddingBottom = 1.0
     tflex.width = CHECK_W
     tflex.height = TAG_H
+    // four buttons of exactly the same size; the word is in the tag colour and so is the bar along the button's foot
+    const TAG_BTN_W = (CHECK_W - 2 * 0.7 - 3 * 0.4) / 4
     const tags: { tag: StartTag; name: string; text: string; w: number }[] = [
-      { tag: "Red", name: "TagBtn_Red", text: "RED", w: 4.4 },
-      { tag: "Yellow", name: "TagBtn_Yellow", text: "YELLOW", w: 5.6 },
-      { tag: "Green", name: "TagBtn_Green", text: "GREEN", w: 5.0 },
-      { tag: "Black", name: "TagBtn_Expectant", text: "EXPECTANT", w: 7.4 },
+      { tag: "Red", name: "TagBtn_Red", text: "RED", w: TAG_BTN_W },
+      { tag: "Yellow", name: "TagBtn_Yellow", text: "YELLOW", w: TAG_BTN_W },
+      { tag: "Green", name: "TagBtn_Green", text: "GREEN", w: TAG_BTN_W },
+      { tag: "Black", name: "TagBtn_Expectant", text: "EXPECTANT", w: TAG_BTN_W },
     ]
     for (const t of tags) {
       const so = global.scene.createSceneObject(t.name)
       so.setParent(tcontent)
       const btn = so.createComponent(Button.getTypeName()) as Button
       btn.size = new vec3(t.w, 5, 1)
-      const label = this.addButtonLabel(so, t.text, t.w - 0.3, TYPE_TAG)
+      const label = this.addButtonLabel(so, t.text, t.w - 0.2, TYPE_TAG)
       label.textFill.color = TAG_COLOUR[t.tag]
+      label.getTransform().setLocalPosition(new vec3(0, 0.35, BUTTON_LABEL_Z))
+      if (this.builder) {
+        const strip = this.builder.createPart(so, "TagStrip_" + t.tag, "box", [0, -1.65, BUTTON_LABEL_Z], [t.w - 1.2, 0.45, 0.2], CHIP_TAG_BAR[t.tag])
+        this.tagStrips[t.tag] = strip
+      }
       const item = so.createComponent(FlexItem.getTypeName()) as FlexItem
       item.overrideWidth = t.w
       item.overrideHeight = 5
       const tg = t.tag
       btn.onTriggerUp.add(() => this.chooseTag(tg))
+      addPressPop(btn, so)
       this.tagButtons[t.name] = { button: btn, label: label, obj: so }
     }
 
@@ -899,10 +960,14 @@ export class TriageCheckCards extends BaseScriptComponent {
     }
   }
 
-  private buildChipRow(): void {
+  private buildChipRow(content: SceneObject): void {
+    // the chip row is a flex item of the card column (right under the header); disabled in Drill mode
     const row = global.scene.createSceneObject("LearnChips")
-    row.setParent(this.checkPanel)
-    row.getTransform().setLocalPosition(new vec3(0, CHECK_H / 2 - 0.7 - CHIP_H / 2, CONTENT_Z))
+    row.setParent(content)
+    const item = row.createComponent(FlexItem.getTypeName()) as FlexItem
+    item.overrideWidth = CHECK_W - 2
+    item.overrideHeight = CHIP_H + 0.2
+    this.chipItem = item
     this.chipRow = row
     this.chips = []
     for (let i = 0; i < CHIP_LABELS.length; i++) {
@@ -940,12 +1005,12 @@ export class TriageCheckCards extends BaseScriptComponent {
     this.learnShown = learn
     if (this.chipRow) this.chipRow.enabled = learn
     if (this.cardFlex && this.titleItem && this.statusItem) {
-      this.cardFlex.rowGap = learn ? 0.3 : 0.5
-      this.cardFlex.paddingTop = learn ? 0.7 : 1.0
-      this.cardFlex.paddingBottom = learn ? 0.7 : 1.0
+      this.cardFlex.rowGap = learn ? LEARN_GAP : DRILL_GAP
+      this.cardFlex.paddingTop = PAD
+      this.cardFlex.paddingBottom = PAD
       this.titleItem.overrideHeight = learn ? 2.2 : 2.4
-      this.statusItem.overrideHeight = learn ? 1.7 : 1.8
-      this.titleItem.marginTop = learn ? CHIP_H + 0.3 : 0
+      this.statusItem.overrideHeight = learn ? 1.6 : 1.8
+      if (this.chipItem) this.chipItem.overrideHeight = learn ? CHIP_H + 0.2 : 0
     }
   }
 
@@ -989,7 +1054,7 @@ export class TriageCheckCards extends BaseScriptComponent {
   }
 
   /** Card layout (tests): local y of the lowest check button's bottom edge and of the title's top, and the card half sizes. */
-  getCardFit(): { lowestButtonBottom: number; titleTop: number; halfHeight: number; halfWidth: number } {
+  getCardFit(): { lowestButtonBottom: number; titleTop: number; titleBottom: number; statusTop: number; halfHeight: number; halfWidth: number } {
     let low = 1e9
     const content = this.titleText.sceneObject.getParent()
     const cy = content ? content.getTransform().getLocalPosition().y : 0
@@ -1000,6 +1065,8 @@ export class TriageCheckCards extends BaseScriptComponent {
     return {
       lowestButtonBottom: low + cy,
       titleTop: this.titleText.sceneObject.getTransform().getLocalPosition().y + cy + 1.2,
+      titleBottom: this.titleText.sceneObject.getTransform().getLocalPosition().y + cy - 1.2,
+      statusTop: this.statusText.sceneObject.getTransform().getLocalPosition().y + cy + 0.8,
       halfHeight: CHECK_H / 2,
       halfWidth: CHECK_W / 2,
     }

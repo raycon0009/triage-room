@@ -12,7 +12,7 @@ import {sleep} from "Leaf.lspkg/Utils/common/Utils"
 import {generateRun, validateRun, ForceBlack, DEMO_SEED} from "../Scripts/TriageLayout"
 import {CASUALTY_TABLE, POSE_CHOICES, POSE_INFO, poseLabelOf} from "../Scripts/TriageData"
 import {POSES, partsFromPose, boundsOf, lookFor, DIM} from "../Scripts/TriageFigurePose"
-import {getTriageMain, startFixedRun, casualtyObjects, measureFigure, getCards, cleanup, resetToFreshStart} from "./TriageLeafHelpers"
+import {getTriageMain, startFixedRun, casualtyObjects, measureFigure, getCards, cleanup, resetToFreshStart, FAR_VIEWER} from "./TriageLeafHelpers"
 
 @component
 export class TriagePoseVariationScenario extends Scenario {
@@ -100,6 +100,7 @@ export class TriagePoseVariationScenario extends Scenario {
     // Part 2: the built scene
     const tm = getTriageMain()
     const cards = getCards()
+    cards.setViewerOverride(FAR_VIEWER) // proximity must not swap the open card while titles are read
     const floorY = tm.sceneObject.getTransform().getWorldPosition().y
     const builder = tm.getFigureBuilder()
     for (let seed = 5; seed <= 45; seed += 8) {
@@ -134,6 +135,7 @@ export class TriagePoseVariationScenario extends Scenario {
         cards.closeCard()
       }
     }
+    cards.setViewerOverride(null)
     cleanup(tm, cards)
     resetToFreshStart(tm)
   }
