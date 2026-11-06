@@ -11,6 +11,9 @@
  *    that casualty is out of view and untagged, until the player FIRST sees them; then it is gone for good (even if they
  *    turn away again). Drill has no arrow.
  * "In view" = the head or torso centre of the casualty falls inside the camera's field of view.
+ * First-seen record: every frame of a run it also notes, for ALL four casualties, the run time at which each first came
+ *   into view (same head-or-torso rule), into TriageMain.getFirstSeen(); the first tag or call-out is noted too. Sampling
+ *   stops when the run ends.
  * Public API (for tests): getGroanSource(), getGroanPlayCount(), isArrowVisible(), getArrowSide(), isBehindInView(),
  *   getBehindId(), setViewerOverride(position, look), isCaptionVisible(), getCaptionText(), getCaptionObject(),
  *   getCaptionRect(), getCaptionAlpha(), hasSeenBehind().
@@ -149,6 +152,8 @@ export class TriageBehindCue extends BaseScriptComponent {
     this.buildArrow()
     this.buildCaption()
     this.main.onRegenerated.add(() => this.setupRun())
+    this.cards.onCasualtyTagged.add(() => this.main.getFirstSeen().noteAction(this.clock.getElapsed()))
+    this.clock.onRunEnded.add(() => this.main.getFirstSeen().stop())
     this.main.onRunStarted.add(() => {
       this.untilNext = this.firstGroanDelaySeconds
       this.seenOnce = false
@@ -300,8 +305,20 @@ export class TriageBehindCue extends BaseScriptComponent {
 
   // ------------------------------------------------------------------ per frame
 
+  /** Note which casualties are in view now (all of them, until the run ends). */
+  private sampleFirstSeen(): void {
+    if (!this.main.isStarted() || !this.clock.isRunning() || this.clock.isEnded()) return
+    const eye = this.eye()
+    const look = this.look()
+    const inView: { [id: string]: boolean } = {}
+    for (const id of this.main.getCasualtyIds()) inView[id] = this.computeInView(eye, look, id)
+    this.main.getFirstSeen().sample(this.clock.getElapsed(), inView)
+  }
+
   private tick(): void {
-    if (!this.main || !this.clock || !this.behindId || !this.arrow) return
+    if (!this.main || !this.clock) return
+    this.sampleFirstSeen()
+    if (!this.behindId || !this.arrow) return
     const active = this.main.isStarted() && this.clock.isRunning() && !this.clock.isEnded() && !!this.groanAudio
     const id = this.behindId
     const tagged = active && this.cards.getRecord(id).tag !== null

@@ -4,7 +4,7 @@
  *  - the end trigger: when all four casualties are tagged (and a called-out walker has arrived) it waits a moment and
  *    calls TriageRunClock.endRun("all-tagged"). Time's up arrives through the clock's own endRun("time").
  *  - the "Scene clear" button (TriageSceneClear), which ends the run with "scene-clear" when the player says they are done;
- *  - the debrief, opened by TriageRunClock.onRunEnded for any reason:
+ *  - the debrief, opened by TriageRunClock.onRunEnded for any reason (under the summary: when everyone came into view):
  *      * ONE upright panel (UI Kit BackPlate) about 1.2 m in front of the start position, centred slightly below eye
  *        level and small enough to sit fully in view. Top: the summary in two large white lines. Below: one row per
  *        casualty, numbered 1-4; anyone missed is row 1.. with "NOT REACHED" as the biggest, flashing text. A row is
@@ -140,6 +140,9 @@ export class TriageDebrief extends BaseScriptComponent {
   private restartObj: SceneObject | null = null
   private rows: { [id: string]: RowParts } = {}
   private summaryTexts: Text[] = []
+  /** the "in view" lines under the summary (when everyone came into view; started before seeing everyone) */
+  private viewTexts: Text[] = []
+  private viewLines: string[] = []
   private panelTexts: { id: string; name: string; text: Text; size: number; obj: SceneObject }[] = []
   private billboards: SceneObject[] = []
   private entries: DebriefEntry[] = []
@@ -255,6 +258,10 @@ export class TriageDebrief extends BaseScriptComponent {
   }
   getSummaryLines(): string[] {
     return this.summaryTexts.map((t) => t.text)
+  }
+  /** The lines under the summary about when everyone came into view (head direction, not eye tracking). */
+  getViewLines(): string[] {
+    return this.viewTexts.map((t) => t.text)
   }
   /** The text of every line of a casualty's row: number, name, stats, youLabel, youWord, correctLabel, correctWord, explanation, notReached. */
   getRowTexts(id: string): { [name: string]: string } {
@@ -472,6 +479,7 @@ export class TriageDebrief extends BaseScriptComponent {
     this.panel.getTransform().setLocalScale(new vec3(sc, sc, sc))
     if (this.panelPlate && !isNull(this.panelPlate)) this.panelPlate.opacity = pk
     for (const t of this.summaryTexts) this.setAlpha(t, WHITE, pk)
+    for (const t of this.viewTexts) this.setAlpha(t, WHITE, pk)
     for (const st of this.plan) {
       if (st.id === null) continue
       const r = this.rows[st.id]
@@ -533,6 +541,8 @@ export class TriageDebrief extends BaseScriptComponent {
     this.restartObj = null
     this.rows = {}
     this.summaryTexts = []
+    this.viewTexts = []
+    this.viewLines = []
     this.panelTexts = []
     this.billboards = []
     this.entries = []
@@ -579,6 +589,7 @@ export class TriageDebrief extends BaseScriptComponent {
     this.entries = orderRows(raw) // anyone missed first; rows numbered 1..n
     const used = Math.min(this.clock.getElapsed(), this.clock.getDuration())
     this.summary = summarize(this.entries, used, this.main.getMode() === "learn" ? "Learn" : "")
+    this.viewLines = this.main.getFirstSeen().lines()
 
     this.root = global.scene.createSceneObject("DebriefRoot")
     this.root.setParent(this.sceneObject)
@@ -590,7 +601,7 @@ export class TriageDebrief extends BaseScriptComponent {
     this.panelAt = reason === "time" ? this.timesUpSeconds + PAUSE_AFTER_TIMES_UP : reason === "scene-clear" ? SCENE_CLEAR_PAUSE : 0.1
     if (this.panel) this.panel.enabled = false
     if (this.restartObj) this.restartObj.enabled = false
-    print("TRIAGE_DEBRIEF " + reason + " " + this.summary.text)
+    print("TRIAGE_DEBRIEF " + reason + " " + this.summary.text + " | " + this.viewLines.join(" | "))
   }
 
   // ------------------------------------------------------------------ map
@@ -697,13 +708,20 @@ export class TriageDebrief extends BaseScriptComponent {
     this.panelPlate = root.getComponent(RoundedRectangle.getTypeName()) as RoundedRectangle
 
     // measurements come from TriageDebriefLayout (pure, tested in Node); this only draws them
-    const lay = layoutPanel(this.entries, DEBRIEF_SIZES)
+    const lay = layoutPanel(this.entries, DEBRIEF_SIZES, this.viewLines.length)
     const sum = this.summary!
     for (let i = 0; i < 2; i++) {
       const t = this.addText(content, "Summary" + (i + 1), sum.lines[i], DEBRIEF_SIZES.title, WHITE, 0, lay.summaryY[i], "center", PANEL_W - 2 * MARGIN)
       this.summaryTexts.push(t)
       this.panelTexts.push({ id: "summary", name: "line" + (i + 1), text: t, size: DEBRIEF_SIZES.title, obj: t.sceneObject })
     }
+
+    // when everyone came into view: the existing smallest size (shortened wording, not smaller text, keeps it in the panel)
+    this.viewLines.forEach((line, i) => {
+      const t = this.addText(content, "View" + (i + 1), line, DEBRIEF_SIZES.small, WHITE, 0, lay.noteY[i], "center", PANEL_W - 2 * MARGIN)
+      this.viewTexts.push(t)
+      this.panelTexts.push({ id: "view", name: "line" + (i + 1), text: t, size: DEBRIEF_SIZES.small, obj: t.sceneObject })
+    })
 
     const wBox = PANEL_W - 2 * MARGIN
     for (const e of this.entries) {

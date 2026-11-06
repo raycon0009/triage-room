@@ -4,6 +4,8 @@
  *
  * Table (cm, in the panel's plane, panel width 62):
  *   summary: two title-size lines, centred.
+ *   view notes (0-2 lines, small size, centred) directly under the summary: when everyone came into view, and whether the
+ *   player started before seeing everyone.
  *   per casualty, one row of up to three lines:
  *     line 1: "#  name .............. stats"   (a missed casualty: "#  NOT REACHED" in title size, flashing red)
  *     line 2: "   You WORD     Correct WORD"      (a missed casualty: "   name     Correct WORD")
@@ -28,8 +30,8 @@ export interface Sizes {
 }
 
 const LINE = 1.2 // line pitch = em * LINE
-const PAD_Y = 2.4
-const ROW_GAP = 0.9
+const PAD_Y = 2
+const ROW_GAP = 0.7
 /** about this many characters of explanation fit on one line at the small size across the table's text columns */
 export const EXPLANATION_CHARS_PER_LINE = 44
 
@@ -59,16 +61,24 @@ export interface RowLayout {
 export interface PanelLayout {
   height: number
   summaryY: number[]
+  /** centre of each view-note line (small size) */
+  noteY: number[]
   rows: RowLayout[]
 }
 
-export function layoutPanel(entries: RowIn[], sizes: Sizes): PanelLayout {
+export function layoutPanel(entries: RowIn[], sizes: Sizes, notes: number = 0): PanelLayout {
   let cursor = PAD_Y
   const summaryY: number[] = []
   const pSum = pitch(sizes.title)
   for (let i = 0; i < 2; i++) {
     summaryY.push(-(cursor + pSum / 2))
     cursor += pSum
+  }
+  const noteY: number[] = []
+  const pNote = pitch(sizes.small)
+  for (let i = 0; i < notes; i++) {
+    noteY.push(-(cursor + pNote / 2))
+    cursor += pNote
   }
   cursor += ROW_GAP
   const rows: RowLayout[] = []
@@ -94,7 +104,7 @@ export function layoutPanel(entries: RowIn[], sizes: Sizes): PanelLayout {
     rows.push({ id: e.id, row: e.row, missed: missed, line1Size: s1, y1: y1, y2: y2, y3: y3, lines3: lines3, p3: p3 })
   }
   cursor += PAD_Y - ROW_GAP
-  return { height: cursor, summaryY: summaryY, rows: rows }
+  return { height: cursor, summaryY: summaryY, noteY: noteY, rows: rows }
 }
 
 /** Largest explanation line length (characters) the table is designed for; scoring keeps every line within it. */

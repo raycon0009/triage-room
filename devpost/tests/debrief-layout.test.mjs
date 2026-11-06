@@ -80,5 +80,27 @@ check("the plan follows the row numbers", plan.slice(1).map((s) => s.id).join() 
 const noMiss = revealSchedule(entries(["correct", "wrong", "correct", "correct"]))
 check("nobody missed: rows come in one by one from the first", noMiss.filter((s) => s.kind === "missed").length === 0 && noMiss.length === 5 && noMiss[1].at < noMiss[2].at)
 
+// ---- the first-seen lines under the summary (real-miss change 3): small size, so the text is not shrunk below the minimum
+{
+  let worstN = 0
+  let worstNCombo = ""
+  for (const a of S) for (const b of S) for (const c of S) for (const d of S) {
+    const allMissed = [a, b, c, d].every((x) => x === "missed")
+    const notes = allMissed ? 1 : 2 // nobody tagged: only the "in view" line; someone tagged: it can also say "You started before..."
+    const lay2 = layout(entries([a, b, c, d]), DEBRIEF_SIZES, notes)
+    const ang = angle(lay2.height)
+    if (ang > worstN) { worstN = ang; worstNCombo = [a, b, c, d].join(",") + " notes=" + notes }
+  }
+  check("all 81 status combinations still fit the view with the view lines (0.5 degrees to spare)", worstN < VIEW_HALF_V_DEG - 0.5, { worstDeg: Math.round(worstN * 100) / 100, worstNCombo })
+  const noneN = layout(entries(["missed", "missed", "missed", "missed"]), DEBRIEF_SIZES, 1)
+  check("nobody reached plus the view line fits", angle(noneN.height) < VIEW_HALF_V_DEG - 0.5, { heightCm: Math.round(noneN.height * 10) / 10, deg: Math.round(angle(noneN.height) * 100) / 100 })
+  const worst2 = layout(entries(["correct", "missed", "missed", "missed"]), DEBRIEF_SIZES, 2)
+  check("three missed plus both view lines fits", angle(worst2.height) < VIEW_HALF_V_DEG - 0.5, { heightCm: Math.round(worst2.height * 10) / 10, deg: Math.round(angle(worst2.height) * 100) / 100 })
+  check("view lines sit under the summary and above the first row", worst2.noteY.length === 2 && worst2.summaryY[1] > worst2.noteY[0] && worst2.noteY[0] > worst2.noteY[1] && worst2.noteY[1] > worst2.rows[0].y1)
+  const plain = layoutPanel(entries(["correct", "correct", "correct", "correct"]))
+  check("no view lines: the layout has none", plain.noteY.length === 0)
+  check("the view lines use the existing smallest size, not smaller", DEBRIEF_SIZES.small >= 100, DEBRIEF_SIZES)
+}
+
 console.log(pass + " passed, " + fail + " failed")
 process.exit(fail ? 1 : 0)

@@ -16,6 +16,7 @@ import { CASUALTY_TABLE, CasualtyId, poseLabelOf, poseShortOf } from "./TriageDa
 import { DEMO_SEED, ForceBlack, RunLayout, ROOM, generateRun, layoutSignature, resolveSeed, validateRun } from "./TriageLayout"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
 import { lookFor } from "./TriageFigurePose"
+import { FirstSeenTracker } from "./TriageFirstSeen"
 
 export interface CasualtyState {
   id: CasualtyId
@@ -134,6 +135,7 @@ export class TriageMain extends BaseScriptComponent {
   private started = false
   private builder!: TriageFigureBuilder
   private casualtyObjects: { [id: string]: SceneObject } = {}
+  private firstSeen = new FirstSeenTracker()
 
   onAwake() {
     this.createEvent("OnStartEvent").bind(() => this.onStart())
@@ -216,6 +218,7 @@ export class TriageMain extends BaseScriptComponent {
     this.run = generateRun(seedValue, fb)
     this.started = false
     this.buildCasualties()
+    this.firstSeen.reset(this.run.casualties.map((c) => c.id))
     this.casualtiesRoot.enabled = false
     const state = this.getRunState()
     print("TRIAGE_RUN_STATE " + JSON.stringify(state))
@@ -233,6 +236,15 @@ export class TriageMain extends BaseScriptComponent {
     this.scenarioUI.showScenario(this.scenarioText, this.scenarioHoldSeconds, this.scenarioFadeSeconds)
     print("TRIAGE_STARTED")
     this._onRunStarted.invoke(this.getRunState())
+  }
+
+  getCasualtyIds(): string[] {
+    return this.run.casualties.map((c) => c.id)
+  }
+
+  /** When each casualty first came into view this run (TriageBehindCue fills it in; the debrief reads it). */
+  getFirstSeen(): FirstSeenTracker {
+    return this.firstSeen
   }
 
   /** True once the first run layout exists. */
