@@ -3,7 +3,8 @@
  * Owns:
  *  - the end trigger: when all four casualties are tagged (and a called-out walker has arrived) it waits a moment and
  *    calls TriageRunClock.endRun("all-tagged"). Time's up arrives through the clock's own endRun("time").
- *  - the debrief, opened by TriageRunClock.onRunEnded for either reason:
+ *  - the "Scene clear" button (TriageSceneClear), which ends the run with "scene-clear" when the player says they are done;
+ *  - the debrief, opened by TriageRunClock.onRunEnded for any reason:
  *      * ONE upright panel (UI Kit BackPlate) about 1.2 m in front of the start position, centred slightly below eye
  *        level and small enough to sit fully in view. Top: the summary in two large white lines. Below: one row per
  *        casualty, numbered 1-4; anyone missed is row 1.. with "NOT REACHED" as the biggest, flashing text. A row is
@@ -28,6 +29,7 @@ import { TriageMain } from "./TriageMain"
 import { TriageCheckCards } from "./TriageCheckCards"
 import { TriageRunClock, EndReason } from "./TriageRunClock"
 import { TriageCallOut } from "./TriageCallOut"
+import { TriageSceneClear } from "./TriageSceneClear"
 import { TriageFigureBuilder, TAG_BAND_COLOUR } from "./TriageFigureBuilder"
 import { CASUALTY_TABLE } from "./TriageData"
 import { ROOM } from "./TriageLayout"
@@ -52,6 +54,8 @@ const FLASH_DIM = new vec4(1, 0.3, 0.3, 1) // the flash alternates between this 
 const GUTTER_Z = 0.6
 /** How long an old debrief stays (hidden) before it is destroyed, so the interactor that pressed Restart lets go first */
 const RETIRE_SECONDS = 0.5
+/** After "Yes, scene clear" the debrief panel appears this long after the run ends (no Time's up panel) */
+const SCENE_CLEAR_PAUSE = 0.6
 /** the panel itself fades and scales in over this long once it appears */
 const PANEL_IN = 0.26
 const PANEL_FROM = 0.92
@@ -156,6 +160,7 @@ export class TriageDebrief extends BaseScriptComponent {
   private panelPlate: RoundedRectangle | null = null
   private timesUpHidden = false
   private viewerOverride: vec3 | null = null
+  private sceneClear: TriageSceneClear | null = null
   /**
    * Old debriefs waiting to be destroyed. clear() hides the old debrief at once but destroys it a moment later: the
    * Restart button inside it is still held by the interactor that just pinched it (a hand's cursor, or LEAF's scripted
@@ -183,6 +188,15 @@ export class TriageDebrief extends BaseScriptComponent {
       boxUnitCm: this.main.boxUnitCm,
       sphereUnitCm: this.main.sphereUnitCm,
     })
+    this.sceneClear = new TriageSceneClear({
+      host: this,
+      parent: this.sceneObject,
+      main: this.main,
+      cards: this.cards,
+      clock: this.clock,
+      callOut: this.callOut,
+      cameraObject: this.cameraObject,
+    })
     this.clock.onRunEnded.add((r) => this.openDebrief(r))
     this.main.onRegenerated.add(() => this.clear())
     this.main.onRunStarted.add(() => {
@@ -194,6 +208,10 @@ export class TriageDebrief extends BaseScriptComponent {
 
   setViewerOverride(p: vec3 | null): void {
     this.viewerOverride = p
+  }
+  /** The "Scene clear" button and its question (null before the Lens has started). */
+  getSceneClear(): TriageSceneClear | null {
+    return this.sceneClear
   }
   isOpen(): boolean {
     return this.open
@@ -569,7 +587,7 @@ export class TriageDebrief extends BaseScriptComponent {
     this.buildPanel()
     this.buildRestart()
     // at time's up the Time's up panel is shown alone for a moment, then a short pause, then the panel appears
-    this.panelAt = reason === "time" ? this.timesUpSeconds + PAUSE_AFTER_TIMES_UP : 0.1
+    this.panelAt = reason === "time" ? this.timesUpSeconds + PAUSE_AFTER_TIMES_UP : reason === "scene-clear" ? SCENE_CLEAR_PAUSE : 0.1
     if (this.panel) this.panel.enabled = false
     if (this.restartObj) this.restartObj.enabled = false
     print("TRIAGE_DEBRIEF " + reason + " " + this.summary.text)

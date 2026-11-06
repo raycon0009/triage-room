@@ -559,6 +559,11 @@ export class TriageCheckCards extends BaseScriptComponent {
   /** Sample points on the open casualty's head and torso (world cm): the torso box's centre and eight corners,
    *  the head's centre and six points on its surface. The legs and arms are deliberately NOT sampled: the card
    *  may overlap them, but never the head or torso. */
+  /** Head and torso sample points of a casualty (world cm); other boards use it to stay off the bodies. */
+  getBodySamplePoints(id: string): vec3[] {
+    return this.samplePoints(id)
+  }
+
   private samplePoints(id: string): vec3[] {
     const a = this.anchors[id]
     const pts: vec3[] = []

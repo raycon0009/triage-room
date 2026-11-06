@@ -131,6 +131,12 @@ export class TriageCallOut extends BaseScriptComponent {
     return !!this.panel && this.panelShown
   }
 
+  /** The call-out button's board (world centre and size in cm) while it is on show, so other boards can keep clear of it. */
+  getButtonRect(): { pos: vec3; w: number; h: number } | null {
+    if (!this.panel || isNull(this.panel) || !this.panelShown) return null
+    return { pos: this.panel.getTransform().getWorldPosition(), w: this.buttonWidthCm + 2 * PAD, h: this.buttonHeightCm + 2 * PAD }
+  }
+
   /** Horizontal distance (cm) from the walker to the centre of the green circle; -1 if there is no walker yet. */
   getArrivalDistanceCm(): number {
     if (!this.walker || isNull(this.walker)) return -1

@@ -3,7 +3,7 @@
  * Owns: the countdown (starts on Start), pushing the remaining time to the check card (shown on an open card only,
  *       nowhere else in the view), the chime at 0:30 left, and the end state: endRun(reason) closes any open card,
  *       locks the cards and stops everything; for "time" it shows a clear "Time's up" panel.
- * Hooks for later steps: onRunEnded (reason "time" | "all-tagged"), isEnded(), getEndReason(), endRun(reason).
+ * Hooks for later steps: onRunEnded (reason "time" | "all-tagged" | "scene-clear"), isEnded(), getEndReason(), endRun(reason).
  *   Step 4 (debrief map) subscribes to onRunEnded and calls endRun("all-tagged") when everyone is tagged.
  * Test hooks: configure(durationSeconds, chimeAtSeconds), debugAdvance(seconds), getChimeCount().
  * Must not: build the debrief map, or implement check/START logic.
@@ -17,7 +17,7 @@ import { TriageMain } from "./TriageMain"
 import { TriageCheckCards } from "./TriageCheckCards"
 import { GAP, PAD, TEXT_SMALL, hidePanel, hidePanelNow, showPanel, sizesAt } from "./TriageUi"
 
-export type EndReason = "time" | "all-tagged"
+export type EndReason = "time" | "all-tagged" | "scene-clear"
 
 @component
 export class TriageRunClock extends BaseScriptComponent {

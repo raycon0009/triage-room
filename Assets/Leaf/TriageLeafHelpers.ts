@@ -240,6 +240,10 @@ export function cleanup3(tm: TriageMain, cards: TriageCheckCards): void {
   getCue().setViewerOverride(null)
   const deb = getDebrief()
   deb.setViewerOverride(null)
+  const sceneClear = deb.getSceneClear()
+  if (sceneClear) {
+    sceneClear.setViewerOverride(null)
+  }
   deb.endGraceSeconds = 1.2
   deb.timesUpSeconds = 2
   deb.flashHz = 1.8
