@@ -534,17 +534,32 @@ export function findPart(parts: Part[], name: string): Part {
 
 // ------------------------------------------------------------------ palettes chosen by seed
 
-/** Clothing colours: more saturated than before but still light (nothing dark: the display is additive). */
+/** The tag colours (band, and the lighter word colour). Clothing must stay clearly different from all of these. */
+export const TAG_BAND_RGB: { [tag: string]: number[] } = {
+  Red: [1, 0.3, 0.3],
+  Yellow: [1, 0.88, 0.25],
+  Green: [0.3, 0.95, 0.45],
+  Black: [0.3, 0.3, 0.32], // EXPECTANT dark grey
+}
+export const TAG_WORD_RGB: { [tag: string]: number[] } = {
+  Red: [1, 0.45, 0.45],
+  Yellow: [1, 0.92, 0.35],
+  Green: [0.45, 1, 0.55],
+  Black: [1, 1, 1],
+}
+
+/** Clothing colours: light (nothing dark: the display is additive) and kept to the blue / violet / cyan / pink-white
+ *  families, so no shirt or trousers can be mistaken for a red, yellow, green or dark grey tag. */
 export const SHIRT_PALETTE: number[][] = [
-  [0.45, 0.92, 0.65], // mint
+  [0.62, 0.72, 1.0], // periwinkle
   [0.5, 0.78, 1.0], // sky
   [0.78, 0.66, 1.0], // lilac
-  [1.0, 0.7, 0.42], // peach
-  [1.0, 0.9, 0.36], // butter
-  [1.0, 0.56, 0.72], // rose
-  [0.4, 0.93, 0.9], // aqua
-  [0.72, 0.95, 0.36], // lime
-  [1.0, 0.56, 0.5], // coral
+  [1.0, 0.55, 0.95], // pink-magenta
+  [0.6, 0.6, 1.0], // blue-violet
+  [0.85, 0.5, 1.0], // violet
+  [0.35, 0.85, 1.0], // cyan
+  [0.55, 0.8, 0.95], // steel blue
+  [0.6, 0.95, 1.0], // light aqua
 ]
 /** Skin tones, all light enough to stay visible (darkest still has a luminance above 0.55). */
 export const SKIN_PALETTE: number[][] = [
@@ -561,13 +576,13 @@ export const HAIR_PALETTE: number[][] = [
   [0.9, 0.5, 0.34],
   [0.68, 0.54, 0.45],
 ]
-/** Trousers: light but clearly coloured, so they do not wash out to white. */
+/** Trousers: light but clearly coloured, so they do not wash out to white; none near a tag colour. */
 export const PANTS_PALETTE: number[][] = [
   [0.45, 0.6, 0.93], // denim
-  [0.86, 0.74, 0.46], // khaki
-  [0.55, 0.78, 0.6], // sage
+  [0.7, 0.55, 0.95], // indigo
+  [0.6, 0.72, 0.82], // slate
   [0.78, 0.6, 0.8], // mauve
-  [0.42, 0.76, 0.78], // teal
+  [0.3, 0.72, 0.88], // cyan blue
 ]
 /** Shoes: a different family from clothes and skin. */
 export const SHOE_PALETTE: number[][] = [

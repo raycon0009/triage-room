@@ -23,6 +23,7 @@ import {
   Pose,
   STANDING_POSE,
   bakeParts,
+  TAG_BAND_RGB,
   boundsOf,
   findPart,
   grounded,
@@ -44,12 +45,7 @@ export interface FigureResources {
 const WALL = [0.45, 0.52, 0.66]
 
 /** Tag band colours (light; Expectant is dark grey and gets a white outline, never black). */
-export const TAG_BAND_COLOUR: { [tag: string]: number[] } = {
-  Red: [1, 0.3, 0.3],
-  Yellow: [1, 0.88, 0.25],
-  Green: [0.3, 0.95, 0.45],
-  Black: [0.3, 0.3, 0.32],
-}
+export const TAG_BAND_COLOUR: { [tag: string]: number[] } = TAG_BAND_RGB
 
 function toQuat(r: number[]): quat {
   return new quat(r[3], r[0], r[1], r[2])

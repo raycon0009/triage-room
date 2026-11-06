@@ -508,3 +508,10 @@ Small fixes only, on `main` (merged `render-polish` first: already up to date, m
 - Node: all six files pass (`figures.test.mjs` gained 4 band checks).
 - LEAF: all 23 scenarios pass, run one at a time after the last edit. Nothing failed twice. One of my own probes first failed because I assumed the wrong eye height (the floor is at -150, the eye at 0); fixed in the new scenario.
 - Capture: `devpost/captures/tag-band-lying-close.jpg` (tagged lying casualty, narrow Yellow band, smooth knees). It does not show the word (it floats above the frame); the word is proven by the LEAF measurements instead.
+
+### Clothing colours kept away from tag colours
+- Several shirts and trousers sat close to a tag colour (butter 0.02 from the Yellow word, coral 0.12 from Red, mint 0.13 from Green, lime, khaki, sage, teal and rose within 0.25 to 0.33). Shirts and trousers now use only blue, violet, cyan and pink families (same palette sizes, same light brightness: shirts luminance >= 0.6, trousers >= 0.55). The tag colours now live in one place (`TAG_BAND_RGB` / `TAG_WORD_RGB` in `TriageFigurePose.ts`), which the band, the tag word and the new test all read.
+- New node check in `figures.test.mjs`: every shirt and trouser colour is at least 0.4 (RGB distance) from every tag colour, both band and word colours (so also from the white EXPECTANT word and the dark grey band). Closest pair is now above 0.4. The existing check that one person's shirt, trousers, skin and shoes differ still passes.
+- Shoes (one yellow, one pink) were left alone as asked (shirt and trousers only); they are small.
+- Demo seed layout, cases and poses unchanged (palettes do not feed the layout); the looks of the demo seed's figures do change colour. All 23 LEAF scenarios and all six node files pass.
+- `Assets/Scene.scene`: committed the LEAF Plugin Bridge object and component ID change; the diff held nothing else.

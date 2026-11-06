@@ -29,6 +29,13 @@ check("all clothing colours light (luminance >= 0.6)", F.SHIRT_PALETTE.every((c)
 check("all skin tones visible (luminance >= 0.55)", F.SKIN_PALETTE.every((c) => lum(c) >= 0.55))
 check("all hair colours visible (luminance >= 0.5)", F.HAIR_PALETTE.every((c) => lum(c) >= 0.5))
 check("all trousers and shoes light enough (luminance >= 0.55) but not white", F.PANTS_PALETTE.concat(F.SHOE_PALETTE).every((c) => lum(c) >= 0.55) && F.PANTS_PALETTE.every((c) => Math.min(...c) < 0.7))
+{ // clothing must never be mistaken for a tag (red, yellow, green, EXPECTANT dark grey)
+  const d = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1], a[2]-b[2])
+  const tags = Object.values(F.TAG_BAND_RGB).concat(Object.values(F.TAG_WORD_RGB))
+  let worst = 9, who = ""
+  for (const [n, P] of [["shirt", F.SHIRT_PALETTE], ["pants", F.PANTS_PALETTE]]) P.forEach((c, i) => tags.forEach((t) => { const x = d(c, t); if (x < worst) { worst = x; who = n + " " + i } }))
+  check("every shirt and trouser colour is clearly different from every tag colour (RGB distance >= 0.4)", worst >= 0.4, "closest " + who + " " + worst.toFixed(2))
+}
 check("clothing, skin and shoes are different colours on every casualty", [1,2,3,4,5,6,7,8].every((s) => [0,1,2,3].every((i) => { const l = F.lookFor(s, i, false); const d = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1], a[2]-b[2]); return d(l.shirt, l.pants) > 0.2 && d(l.shirt, l.skin) > 0.2 && d(l.pants, l.skin) > 0.2 && d(l.shoe, l.pants) > 0.2 })))
 check("hair styles differ within a run (5 styles)", [1,2,3,4,5].every((s) => new Set([0,1,2,3].map((i) => F.lookFor(s, i, false).hairStyle)).size === 4))
 const fig = F.partsFromPose(F.POSES.lying_back, F.lookFor(1, 0, false))

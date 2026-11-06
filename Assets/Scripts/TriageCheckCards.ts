@@ -17,6 +17,7 @@ import { BackPlate } from "SpectaclesUIKit.lspkg/Scripts/BackPlate"
 import { Button } from "SpectaclesUIKit.lspkg/Scripts/Components/Button/Button"
 import Event, { PublicApi } from "SpectaclesInteractionKit.lspkg/Utils/Event"
 import { TriageMain } from "./TriageMain"
+import { TAG_WORD_RGB } from "./TriageFigurePose"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
 import { CASUALTY_TABLE, CasualtyId } from "./TriageData"
 import { FONT_AT_CARD, PAD, TEXT_SMALL, addPressPop, hidePanel, hidePanelNow, showPanel } from "./TriageUi"
@@ -65,10 +66,10 @@ const CARD_TOP = CHECK_H / 2
 const CARD_BOTTOM = CHECK_H / 2 + TAG_GAP + TAG_H
 const FOLLOW_ANGLE = 30 // beyond this the card is out of view and glides back
 const TAG_COLOUR: { [k in StartTag]: vec4 } = {
-  Red: new vec4(1, 0.45, 0.45, 1),
-  Yellow: new vec4(1, 0.92, 0.35, 1),
-  Green: new vec4(0.45, 1, 0.55, 1),
-  Black: new vec4(1, 1, 1, 1),
+  Red: new vec4(TAG_WORD_RGB.Red[0], TAG_WORD_RGB.Red[1], TAG_WORD_RGB.Red[2], 1),
+  Yellow: new vec4(TAG_WORD_RGB.Yellow[0], TAG_WORD_RGB.Yellow[1], TAG_WORD_RGB.Yellow[2], 1),
+  Green: new vec4(TAG_WORD_RGB.Green[0], TAG_WORD_RGB.Green[1], TAG_WORD_RGB.Green[2], 1),
+  Black: new vec4(TAG_WORD_RGB.Black[0], TAG_WORD_RGB.Black[1], TAG_WORD_RGB.Black[2], 1),
 }
 
 // Learn mode: one row of five step chips across the top of the card (the card keeps its size)
