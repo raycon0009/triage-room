@@ -14,6 +14,7 @@ import {
   getTriageMain,
   getCards,
   getClock,
+  getCue,
   getDebrief,
   startRunFar,
   resetToFreshStart,
@@ -45,6 +46,9 @@ export class TriageLearnModeScenario extends Scenario {
     debrief.setViewerOverride(FAR_VIEWER)
 
     // ---- the start screen: Learn and Drill, each starts the same run in its own mode
+    // Pin the viewer at the start position first, so this covers the Drill-first case whatever position the preview camera starts in.
+    cards.setViewerOverride(FAR_VIEWER)
+    getCue().setViewerOverride(FAR_VIEWER)
     resetToFreshStart(tm)
     await sleep(400)
     await pressButton("LearnButton")
@@ -233,6 +237,7 @@ export class TriageLearnModeScenario extends Scenario {
 
     cards.setViewerOverride(null)
     debrief.setViewerOverride(null)
+    getCue().setViewerOverride(null)
     resetToFreshStart(tm)
   }
 }

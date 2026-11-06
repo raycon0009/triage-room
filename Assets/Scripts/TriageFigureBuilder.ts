@@ -28,7 +28,6 @@ import {
   grounded,
   partsFromPose,
   poseForKind,
-  torsoBandFit,
 } from "./TriageFigurePose"
 
 export interface FigureResources {
@@ -269,8 +268,8 @@ export class TriageFigureBuilder {
   // ------------------------------------------------------------------ tag band
 
   /**
-   * Wraps a coloured band round the casualty's torso: a short elliptic ring slightly larger than the torso's
-   * cross-section, centred on the torso and turned with it. Expectant ("Black") is dark grey with a white outline
+   * Wraps a narrow coloured band round the casualty's torso: a thin shell that follows the torso's shape (about 1.4 cm proud of it, rounded edges),
+   * centred on the torso and turned with it. Expectant ("Black") is dark grey with a white outline
    * (a thicker, slightly narrower white ring behind it, so a white edge shows above and below the band).
    * Returns the band root ("TagBand_<id>"). The `standing` argument is kept for old callers; the pose decides.
    */
@@ -279,13 +278,12 @@ export class TriageFigureBuilder {
     const body = this.bodyOf(casualty)
     const root = global.scene.createSceneObject("TagBand_" + id)
     root.setParent(body)
-    const T = 14 // band thickness along the torso's long axis
+    const T = 7 // band thickness along the torso's long axis (a narrow ring)
     const col = TAG_BAND_COLOUR[tag] || TAG_BAND_COLOUR.Red
     const rings: SceneObject[] = []
-    // fitted to the shaped torso: wide enough to clear its widest point along the band's thickness
-    const fit = torsoBandFit(torso.size, 0.5, T + 7, 3)
-    const ring = (name: string, w: number, thick: number, c: number[]): void => {
-      const part: Part = { name: name, shape: "ring", pos: [0, 0, 0], rot: [0, 0, 0, 1], size: [fit[0] + w, thick, fit[1] + w], col: c, tone: 1 / 0.95 }
+    // a thin shell that follows the shaped torso and stands only ~1.4 cm proud of it, with rounded edges
+    const ring = (name: string, thick: number, off: number, c: number[]): void => {
+      const part: Part = { name: name, shape: "band", pos: [0, 0, 0], rot: [0, 0, 0, 1], size: torso.size.slice(), bulge: [0.5, thick, off], col: c, tone: 1 / 0.95 }
       const so = this.addMesh(root, name, this.meshFrom(bakeParts([part], 0, true)), this.material(c))
       const t = so.getTransform()
       t.setLocalPosition(new vec3(torso.pos[0], torso.pos[1], torso.pos[2]))
@@ -293,13 +291,13 @@ export class TriageFigureBuilder {
       rings.push(so)
     }
     if (tag === "Black") {
-      ring("Outline", 3, T + 7, [1, 1, 1])
-      ring("Band", 1, T, col)
+      ring("Outline", T + 3, 2.4, [1, 1, 1])
+      ring("Band", T, 1.4, col)
     } else {
-      ring("Band", 1, T, col)
+      ring("Band", T, 1.4, col)
     }
     // the ring grows into place round the casualty (0.3 s, wider to its fitted size, thickness unchanged)
-    const GROW_FROM = 1.7
+    const GROW_FROM = 1.25
     tween(
       "band:" + id,
       0.3,

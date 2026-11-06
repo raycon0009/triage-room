@@ -23,7 +23,7 @@ export type Q4 = [number, number, number, number]
 export interface Part {
   name: string
   /** capsule = (tapered) rounded limb or ball; torso / head = shaped lofts; ring = flat-capped elliptic cylinder */
-  shape: "capsule" | "ring" | "torso" | "head"
+  shape: "capsule" | "ring" | "torso" | "head" | "band"
   pos: number[]
   /** quaternion x, y, z, w */
   rot: number[]
@@ -512,7 +512,7 @@ export function partsFromPose(p: Pose, look: Look): Part[] {
     limb("Thigh" + tag, hip, Qt, DIM.thighLen, DIM.thighD, DIM.kneeD, look.pants)
     const knee = add(hip, qRot(Qt, [0, -DIM.thighLen, 0]))
     const Qk = qMul(Qt, rx(kneeFlex))
-    ball("KneeBall" + tag, knee, DIM.kneeD + 0.1, look.pants)
+    ball("KneeBall" + tag, knee, DIM.kneeD + 1.4, look.pants)
     // trouser leg stops above the ankle with a lighter cuff; a bare ankle shows below it
     const legLen = DIM.shinLen - 6.5
     const dCuff = DIM.shinD + (DIM.ankleD - DIM.shinD) * (legLen / DIM.shinLen)
@@ -659,11 +659,11 @@ export interface Geometry {
 }
 
 /** vertices round each ring of a body part; ring (band) cylinders use more so they look round */
-const SEGMENTS = 14
+const SEGMENTS = 20
 const RING_SEGMENTS = 28
-const CAP_STEPS = 3
+const CAP_STEPS = 4
 
-interface Station {
+export interface Station {
   y: number
   ra: number
   rb: number
@@ -827,6 +827,54 @@ export function torsoBandFit(size: number[], uC: number, thick: number, clearanc
   return [w + clearance, d + clearance]
 }
 
+/** Torso radii (ra across X, rb across Z) at height y (cm from the torso centre), linearly interpolated between stations. */
+function torsoRadiiAt(st: Station[], y: number): number[] {
+  for (let i = 0; i < st.length - 1; i++) {
+    if (y >= st[i].y && y <= st[i + 1].y) {
+      const k = (y - st[i].y) / (st[i + 1].y - st[i].y || 1)
+      return [st[i].ra + (st[i + 1].ra - st[i].ra) * k, st[i].rb + (st[i + 1].rb - st[i].rb) * k]
+    }
+  }
+  return [0, 0]
+}
+
+/**
+ * Stations of a narrow tag band that hugs the torso: `thick` cm tall, centred on position uC (0..1) up a torso of the given
+ * size, standing `off` cm proud of the surface at its middle and rounding off to just under the surface at both edges
+ * (no sharp rim). Closed with a pole at each end (hidden inside the torso).
+ */
+export function bandStations(size: number[], uC: number, thick: number, off: number): Station[] {
+  const torso = profileStations(TORSO_PROFILE, size[0], size[1], size[2], 6)
+  const yc = -size[1] / 2 + uC * size[1]
+  const N = 8
+  const out: Station[] = [{ y: yc - thick / 2, ra: 0, rb: 0 }]
+  for (let k = 0; k <= N; k++) {
+    const t = (2 * k) / N - 1
+    const y = yc + (t * thick) / 2
+    const r = torsoRadiiAt(torso, y)
+    const o = -0.8 + (off + 0.8) * Math.pow(Math.max(0, 1 - Math.pow(Math.abs(t), 4)), 0.25)
+    out.push({ y: y, ra: Math.max(0.1, r[0] + o), rb: Math.max(0.1, r[1] + o) })
+  }
+  out.push({ y: yc + thick / 2, ra: 0, rb: 0 })
+  return out
+}
+
+/** Largest radius gap the band leaves over the torso surface, and its height; used by tests. */
+export function bandExtent(size: number[], uC: number, thick: number, off: number): { minProud: number; maxProud: number; height: number } {
+  const torso = profileStations(TORSO_PROFILE, size[0], size[1], size[2], 6)
+  const st = bandStations(size, uC, thick, off).slice(1, -1)
+  let mn = 1e9
+  let mx = -1e9
+  for (const s of st) {
+    const r = torsoRadiiAt(torso, s.y)
+    for (const d of [s.ra - r[0], s.rb - r[1]]) {
+      mn = Math.min(mn, d)
+      mx = Math.max(mx, d)
+    }
+  }
+  return { minProud: mn, maxProud: mx, height: st[st.length - 1].y - st[0].y }
+}
+
 /** A solid elliptic cylinder along local Y (flat caps): used for tag bands and cuffs. */
 function ringGeometry(a: number, L: number, b: number): Geometry {
   const ra = a / 2
@@ -892,7 +940,8 @@ export function partGeometry(p: Part): Geometry {
   const key = p.shape + ":" + p.size.map((v) => Math.round(v * 100)).join(",") + ":" + (p.taper === undefined ? 1 : p.taper) + ":" + (p.bulge ? p.bulge.join(",") : "")
   let g = geomCache[key]
   if (!g) {
-    if (p.shape === "ring") g = ringGeometry(p.size[0], p.size[1], p.size[2])
+    if (p.shape === "band") g = loftGeometry(bandStations(p.size, p.bulge![0], p.bulge![1], p.bulge![2]), RING_SEGMENTS)
+    else if (p.shape === "ring") g = ringGeometry(p.size[0], p.size[1], p.size[2])
     else if (p.shape === "torso") g = loftGeometry(profileStations(TORSO_PROFILE, p.size[0], p.size[1], p.size[2], 3), SEGMENTS)
     else if (p.shape === "head") g = loftGeometry(profileStations(HEAD_PROFILE, p.size[0], p.size[1], p.size[2], 3), SEGMENTS)
     else g = loftGeometry(capsuleStations(p.size[0], p.size[1], p.size[2], p.taper === undefined ? 1 : p.taper, p.bulge), SEGMENTS)

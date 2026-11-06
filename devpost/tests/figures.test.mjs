@@ -35,6 +35,19 @@ const fig = F.partsFromPose(F.POSES.lying_back, F.lookFor(1, 0, false))
 check("sleeve cuffs, trouser cuffs, shoes and a face exist", ["SleeveCuffL","TrouserCuffR","FootL","EyeL","Mouth"].every((n) => fig.some((p) => p.name === n)))
 check("outline is thin (<= 0.5 cm)", F.DIM.rimWidth <= 0.5)
 { const fit = F.torsoBandFit(F.DIM.torso, 0.5, 14, 3); check("tag band clears the shaped torso", fit[0] >= 30 && fit[0] <= F.DIM.torso[0] + 4 && fit[1] >= 18, fit.map((v) => v.toFixed(1)).join(" x ")) }
+{ // tag band: a narrow ring that follows the shaped torso and sits close to it
+  const e = F.bandExtent(F.DIM.torso, 0.5, 7, 1.4)
+  check("tag band is narrow (<= 8 cm tall)", e.height <= 8, e.height.toFixed(1) + " cm")
+  check("tag band sits close to the torso (never more than 2 cm proud, never inside it by more than 1 cm)", e.maxProud <= 2 && e.minProud >= -1, e.minProud.toFixed(2) + " .. " + e.maxProud.toFixed(2))
+  const b = F.bakeParts([{ name: "Band", shape: "band", pos: [0, 0, 0], rot: [0, 0, 0, 1], size: F.DIM.torso.slice(), bulge: [0.5, 7, 1.4], col: [1, 1, 1] }], 0, true)
+  let ok = b.idx.length > 0 && b.verts.length / 10 < 65000
+  for (let i = 0; i < b.verts.length; i += 10) if (![0, 1, 2, 3, 4, 5].every((k) => Number.isFinite(b.verts[i + k]))) ok = false
+  check("tag band mesh is valid and small", ok, (b.verts.length / 10) + " verts")
+  // rounded edges: the band's normals at its top and bottom edge lean up / down, not all sideways
+  let up = 0, down = 0
+  for (let i = 0; i < b.verts.length; i += 10) { if (b.verts[i + 4] > 0.3) up++; if (b.verts[i + 4] < -0.3) down++ }
+  check("tag band edges are rounded (normals lean up and down)", up > 20 && down > 20, up + " / " + down)
+}
 { const v = F.bakeParts(fig).verts; let mn = 9; for (let i = 0; i < v.length; i += 10) mn = Math.min(mn, lum([v[i+6], v[i+7], v[i+8]])); check("darkest baked vertex stays clearly visible (luminance > 0.4)", mn > 0.4, mn.toFixed(2)) }
 let distinct = true, repeat = true
 for (let seed = 1; seed <= 500; seed++) {

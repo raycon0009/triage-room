@@ -429,6 +429,25 @@ export class TriageCheckCards extends BaseScriptComponent {
     return (dot.word.getComponent("Component.Text") as Text).text
   }
 
+  /** Test hook: where the tag word is, how it is turned and how big it lies in the world (cm). null if there is none. */
+  getTagWordInfo(id: string): { colour: vec4; centre: vec3; forward: vec3; up: vec3; width: number; height: number; enabled: boolean } | null {
+    const dot = this.dots[id]
+    if (!dot || !dot.word || isNull(dot.word)) return null
+    const tr = dot.word.getTransform()
+    const rot = tr.getWorldRotation()
+    const sc = tr.getWorldScale()
+    const box = (dot.word.getComponent("Component.Text") as Text).getBoundingBox()
+    return {
+      colour: (dot.word.getComponent("Component.Text") as Text).textFill.color,
+      centre: tr.getWorldPosition(),
+      forward: rot.multiplyVec3(new vec3(0, 0, 1)),
+      up: rot.multiplyVec3(new vec3(0, 1, 0)),
+      width: (box.right - box.left) * sc.x,
+      height: (box.top - box.bottom) * sc.y,
+      enabled: dot.word.enabled,
+    }
+  }
+
   // ------------------------------------------------------------------ run setup
 
   private rebuildForRun(): void {
@@ -785,15 +804,15 @@ export class TriageCheckCards extends BaseScriptComponent {
       if (!dot.word) {
         const w = global.scene.createSceneObject("Dot_Word_" + id)
         w.setParent(cas)
-        w.getTransform().setLocalPosition(new vec3(0, stands ? 182 : 112, 0)) // above a standing walker's head
+        w.getTransform().setLocalPosition(new vec3(0, stands ? 196 : 140, 0)) // clear of the head: above a standing walker, above a seated / lying figure (nothing is over 130 cm)
         const t = w.createComponent("Component.Text") as Text
         t.depthTest = true
-        t.size = 150
+        t.size = 360 // about 10 cm tall letters: 2 deg or more from the far wall, EXPECTANT about 50 cm wide
         t.horizontalAlignment = HorizontalAlignment.Center
         t.verticalAlignment = VerticalAlignment.Center
         t.horizontalOverflow = HorizontalOverflow.Overflow
         t.verticalOverflow = VerticalOverflow.Overflow
-        t.layoutRect = Rect.create(-30, 30, -6, 6)
+        t.layoutRect = Rect.create(-75, 75, -15, 15)
         dot.word = w
       }
       const t = dot.word.getComponent("Component.Text") as Text

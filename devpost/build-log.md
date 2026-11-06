@@ -482,3 +482,29 @@ Also ruled out: the `Can not Set Media Type for Sink Writer` errors in the log a
 
 ### Demo
 Demo seed layout unchanged. To record a deliberate miss use **Drill** (no arrow, one groan).
+
+## Tidier tag bands, readable tag words
+
+Small fixes only, on `main` (merged `render-polish` first: already up to date, main was at 3f42e6e).
+
+### Tag band
+- New `band` shape in `TriageFigurePose.ts` (`bandStations`, `bandExtent`): a thin shell that follows the torso's own profile, 7 cm tall (was 14 cm plus a 3 cm clearance on the widest point), about 1.4 cm proud of the surface, with rounded edges (no flat sharp-cornered rim). `TriageFigureBuilder.addTagBand` uses it; Expectant keeps its slightly taller white outline ring behind. The band is a child of the figure body and turns with the torso, so it hugs it in lying, side-lying and seated poses. The old `torsoBandFit` stays exported (unused now) so nothing else breaks.
+- Draw calls: untagged resting figures are untouched (still 2); a tagged figure gains 1 (Band) or 2 (Band + Outline for Expectant).
+- Nothing about a figure's look changes before it is tagged.
+
+### Tag word
+- The word already turned to face the viewer upright, but it was 4 cm tall (0.8 degrees at 3 m, unreadable) and sat at 112 cm over the floor, inside the height of a seated figure's head. It is now text size 360 (10 cm tall letters, 1.5 to 2.9 degrees from the start position, EXPECTANT 46 cm wide, fits completely) and sits 140 cm over the floor (196 cm over a standing walker), above every pose.
+- New hook `TriageCheckCards.getTagWordInfo`.
+- New LEAF `triage-tag-word-in-view` (5 seeds, every non-walker tagged, from the start position and from 90 cm beside it): band and word exist, word text is right, word is in the tag colour (EXPECTANT white), faces the viewer (> 0.99), upright, above the figure, at most 90 cm wide, letters at least 1.2 degrees tall.
+- Not proven: the walker's word after the call-out (same code, standing height) is not in this scenario; real glasses.
+
+### Seams
+- Knee ball 1.3 cm wider (so the joint reads as a clean bulge instead of facets poking through the thigh and shin) and 20 sides instead of 14 per ring, 4 cap steps instead of 3. Close capture shows the knees and trouser cuffs smooth. No rebuild needed. Figure tests still pass (vertex counts well inside the 16-bit limit).
+
+### Test gap
+- `triage-learn-mode` now pins the viewer at the start position (cards and groan cue) before pressing Learn, so the Drill-first case is covered wherever the preview camera starts. No check weakened; the overrides are cleared at the end.
+
+### Tests
+- Node: all six files pass (`figures.test.mjs` gained 4 band checks).
+- LEAF: all 23 scenarios pass, run one at a time after the last edit. Nothing failed twice. One of my own probes first failed because I assumed the wrong eye height (the floor is at -150, the eye at 0); fixed in the new scenario.
+- Capture: `devpost/captures/tag-band-lying-close.jpg` (tagged lying casualty, narrow Yellow band, smooth knees). It does not show the word (it floats above the frame); the word is proven by the LEAF measurements instead.

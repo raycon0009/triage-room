@@ -23,6 +23,7 @@ import {TriageDebriefRevealScenario} from "./TriageDebriefRevealScenario"
 import {TriageSceneClearScenario} from "./TriageSceneClearScenario"
 import {TriageHintsByModeScenario} from "./TriageHintsByModeScenario"
 import {TriageFirstSeenScenario} from "./TriageFirstSeenScenario"
+import {TriageTagWordScenario} from "./TriageTagWordScenario"
 
 @component
 export class LeafIndex extends BaseScriptComponent {
@@ -51,5 +52,6 @@ export class LeafIndex extends BaseScriptComponent {
     {id: "triage-scene-clear", typename: TriageSceneClearScenario.getTypeName()},
     {id: "triage-hints-by-mode", typename: TriageHintsByModeScenario.getTypeName()},
     {id: "triage-debrief-first-seen", typename: TriageFirstSeenScenario.getTypeName()},
+    {id: "triage-tag-word-in-view", typename: TriageTagWordScenario.getTypeName()},
   ]
 }
