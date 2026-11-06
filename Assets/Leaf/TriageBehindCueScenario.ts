@@ -37,7 +37,7 @@ export class TriageBehindCueScenario extends Scenario {
 
     const ahead = new vec3(0, 0, -1)
     cue.setViewerOverride(FAR_VIEWER, ahead)
-    const state = await startRunFar(tm, cards, 11, "off")
+    const state = await startRunFar(tm, cards, 11, "off", "learn") // Learn: Drill has no arrow and one groan
     const behindId = state.behindId
     expect(cue.getBehindId()).toBe(behindId)
 
@@ -89,12 +89,12 @@ export class TriageBehindCueScenario extends Scenario {
     expect(cue.getGroanPlayCount()).toBe(playsWhenSeen)
     expect(cue.isArrowVisible()).toBe(false)
 
-    // ---- turn away again: out of view, the arrow comes back and the groan resumes
+    // ---- turn away again: out of view, the groan resumes but the arrow stays gone
     cue.setViewerOverride(FAR_VIEWER, ahead)
     await sleep(2500)
     expect(cue.isBehindInView()).toBe(false)
-    expect(cue.isArrowVisible()).toBe(true)
-    expect(cue.getGroanPlayCount()).toBeGreaterThan(playsWhenSeen)
+    expect(cue.isArrowVisible()).toBe(false) // Learn: once seen, the arrow is gone for good
+    expect(cue.getGroanPlayCount()).toBeGreaterThan(playsWhenSeen) // the groan still resumes
 
     // ---- tag the casualty behind: no arrow and no groan any more
     cards.openCard(behindId, "button")

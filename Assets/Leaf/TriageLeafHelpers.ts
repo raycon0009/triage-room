@@ -132,10 +132,10 @@ export function findSeedWith(id: string, forceBlack: "on" | "off"): number {
 export const FAR_VIEWER = new vec3(0, 0, 0)
 
 /** Fixed-seed started run with the viewer standing far away (no proximity opening). */
-export async function startRunFar(tm: TriageMain, cards: TriageCheckCards, seed: number, forceBlack: string): Promise<RunState> {
+export async function startRunFar(tm: TriageMain, cards: TriageCheckCards, seed: number, forceBlack: string, mode: string = "drill"): Promise<RunState> {
   cards.setViewerOverride(FAR_VIEWER)
   cards.closeCard()
-  const state = startFixedRun(tm, seed, forceBlack)
+  const state = startFixedRun(tm, seed, forceBlack, mode)
   await sleep(400)
   return state
 }

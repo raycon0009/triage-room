@@ -21,6 +21,7 @@ import {TriagePoseVariationScenario} from "./TriagePoseVariationScenario"
 import {TriageLearnModeScenario} from "./TriageLearnModeScenario"
 import {TriageDebriefRevealScenario} from "./TriageDebriefRevealScenario"
 import {TriageSceneClearScenario} from "./TriageSceneClearScenario"
+import {TriageHintsByModeScenario} from "./TriageHintsByModeScenario"
 
 @component
 export class LeafIndex extends BaseScriptComponent {
@@ -47,5 +48,6 @@ export class LeafIndex extends BaseScriptComponent {
     {id: "triage-learn-mode", typename: TriageLearnModeScenario.getTypeName()},
     {id: "triage-debrief-reveal", typename: TriageDebriefRevealScenario.getTypeName()},
     {id: "triage-scene-clear", typename: TriageSceneClearScenario.getTypeName()},
+    {id: "triage-hints-by-mode", typename: TriageHintsByModeScenario.getTypeName()},
   ]
 }

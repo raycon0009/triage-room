@@ -1,19 +1,37 @@
 /**
  * TriageBehindCue.ts - build step 3: the groan and the arrow that point to the casualty behind the start position.
  * Owns:
- *  - the groan: a soft spatial sound whose source (an AudioComponent) sits on the casualty behind. It repeats every
- *    few seconds while that casualty is out of view and untagged, and stops when they come into view or are tagged;
- *  - the arrow: a small arrow at the edge of the view (head-locked) pointing the way to turn, shown only while that
- *    casualty is out of view and untagged. It disappears once they are in view.
+ *  - the groan: a soft spatial sound whose source (an AudioComponent) sits on the casualty behind.
+ *      Learn: repeats every few seconds while that casualty is out of view and untagged, and stops when they come into
+ *      view or are tagged. Drill: plays ONCE, about 1.5 s after Start, and never repeats;
+ *  - the caption "A groan, somewhere behind you" (light text, head-locked, fades after about 4 s) each time the groan plays,
+ *    so the cue does not rely on hearing. It stays in view and never covers a check card (it moves above or below the
+ *    card, or is held back while there is no room);
+ *  - the arrow (Learn only): a small arrow at the edge of the view (head-locked) pointing the way to turn, shown while
+ *    that casualty is out of view and untagged, until the player FIRST sees them; then it is gone for good (even if they
+ *    turn away again). Drill has no arrow.
  * "In view" = the head or torso centre of the casualty falls inside the camera's field of view.
  * Public API (for tests): getGroanSource(), getGroanPlayCount(), isArrowVisible(), getArrowSide(), isBehindInView(),
- *   getBehindId(), setViewerOverride(position, look).
+ *   getBehindId(), setViewerOverride(position, look), isCaptionVisible(), getCaptionText(), getCaptionObject(),
+ *   getCaptionRect(), getCaptionAlpha(), hasSeenBehind().
  * Must not: tag anyone, own the timer, or open cards.
  */
 import { TriageMain } from "./TriageMain"
 import { TriageCheckCards } from "./TriageCheckCards"
 import { TriageRunClock } from "./TriageRunClock"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
+import { TEXT_WHITE, sizesAt } from "./TriageUi"
+
+export const GROAN_CAPTION = "A groan, somewhere behind you"
+/** The caption is fully shown for this long, then fades over CAPTION_FADE (about 4 s in all). */
+const CAPTION_HOLD = 3.5
+const CAPTION_FADE = 0.5
+const CAPTION_IN = 0.2
+const CAPTION_DISTANCE_CM = 55
+/** centre of the caption this far above the middle of the view (cm, at CAPTION_DISTANCE_CM) */
+const CAPTION_RAISE_CM = 2.5
+const CAPTION_W = 22
+const CAPTION_H = 3.6
 
 @component
 export class TriageBehindCue extends BaseScriptComponent {
@@ -100,6 +118,16 @@ export class TriageBehindCue extends BaseScriptComponent {
   private viewerOverride: vec3 | null = null
   private lookOverride: vec3 | null = null
   private pulse = 0
+  /** Learn: the player has seen the casualty behind at least once, so the arrow is finished for this run */
+  private seenOnce = false
+  /** Drill: the single groan has played */
+  private drillGroanDone = false
+  private caption: SceneObject | null = null
+  private captionText: Text | null = null
+  private captionAge = 1e9
+  private captionAlpha = 0
+  private captionX = 0
+  private captionY = 0
 
   onAwake() {
     this.createEvent("OnStartEvent").bind(() => this.onStart())
@@ -119,9 +147,12 @@ export class TriageBehindCue extends BaseScriptComponent {
       sphereUnitCm: this.main.sphereUnitCm,
     })
     this.buildArrow()
+    this.buildCaption()
     this.main.onRegenerated.add(() => this.setupRun())
     this.main.onRunStarted.add(() => {
       this.untilNext = this.firstGroanDelaySeconds
+      this.seenOnce = false
+      this.drillGroanDone = false
     })
     if (this.main.isReady()) this.setupRun()
   }
@@ -156,6 +187,26 @@ export class TriageBehindCue extends BaseScriptComponent {
   isBehindInView(): boolean {
     return this.inView
   }
+  /** Learn: has the player seen the casualty behind yet (the arrow is finished once they have)? */
+  hasSeenBehind(): boolean {
+    return this.seenOnce
+  }
+  isCaptionVisible(): boolean {
+    return !!this.caption && this.caption.enabled && this.captionAlpha > 0.05
+  }
+  getCaptionText(): string {
+    return this.captionText ? this.captionText.text : ""
+  }
+  getCaptionObject(): SceneObject | null {
+    return this.caption && !isNull(this.caption) ? this.caption : null
+  }
+  getCaptionAlpha(): number {
+    return this.captionAlpha
+  }
+  /** The caption's box in the view plane: centre (x, y) in cm and size, at `distance` cm from the eyes. */
+  getCaptionRect(): { x: number; y: number; w: number; h: number; distance: number } {
+    return { x: this.captionX, y: this.captionY, w: CAPTION_W, h: CAPTION_H, distance: CAPTION_DISTANCE_CM }
+  }
 
   // ------------------------------------------------------------------ run setup
 
@@ -165,6 +216,11 @@ export class TriageBehindCue extends BaseScriptComponent {
     this.groanAudio = null
     this.groanPlays = 0
     this.inView = false
+    this.seenOnce = false
+    this.drillGroanDone = false
+    this.captionAge = 1e9
+    this.captionAlpha = 0
+    if (this.caption) this.caption.enabled = false
     this.untilNext = this.firstGroanDelaySeconds
     if (this.arrow) this.arrow.enabled = false
     const state = this.main.getRunState()
@@ -253,30 +309,103 @@ export class TriageBehindCue extends BaseScriptComponent {
       this.arrow.enabled = false
       this.inView = false
       this.stopGroan()
+      this.updateCaption(this.eye(), this.look(), getDeltaTime(), !active)
       return
     }
     const dt = getDeltaTime()
     const eye = this.eye()
     const look = this.look()
     this.inView = this.computeInView(eye, look, id)
+    const learn = this.main.getMode() === "learn"
 
-    if (this.inView) {
-      this.arrow.enabled = false
-      this.stopGroan()
+    if (learn) {
+      if (this.inView) this.seenOnce = true
+      if (this.seenOnce) this.arrow.enabled = false
+      else this.updateArrow(eye, look, id, dt)
+      if (this.inView) {
+        this.stopGroan()
+      } else {
+        this.untilNext -= dt
+        if (this.untilNext <= 0) {
+          this.untilNext = this.groanIntervalSeconds
+          this.playGroan()
+        }
+      }
     } else {
-      this.updateArrow(eye, look, id, dt)
-      this.untilNext -= dt
-      if (this.untilNext <= 0) {
-        this.untilNext = this.groanIntervalSeconds
-        this.playGroan()
+      // Drill: no arrow; one groan, once, whatever the player is looking at
+      this.arrow.enabled = false
+      if (!this.drillGroanDone) {
+        this.untilNext -= dt
+        if (this.untilNext <= 0) {
+          this.drillGroanDone = true
+          this.playGroan()
+        }
       }
     }
+    this.updateCaption(eye, look, dt, false)
+  }
+
+  /** Head-locked, parallel to the view plane; clear of any open card; fades out about 4 s after the groan played. */
+  private updateCaption(eye: vec3, look: vec3, dt: number, off: boolean): void {
+    const cap = this.caption
+    const txt = this.captionText
+    if (!cap || !txt || isNull(cap)) return
+    this.captionAge += dt
+    let a = 0
+    if (!off && this.captionAge < CAPTION_HOLD + CAPTION_FADE) {
+      a = Math.min(1, this.captionAge / CAPTION_IN)
+      if (this.captionAge > CAPTION_HOLD) a = Math.min(a, 1 - (this.captionAge - CAPTION_HOLD) / CAPTION_FADE)
+    }
+    a = Math.max(0, a)
+    const ax = this.axes(look)
+    const D = CAPTION_DISTANCE_CM
+    const t = this.halfTans()
+    let y = CAPTION_RAISE_CM
+    let hide = false
+    const card = this.cards.getCardExtent()
+    if (card) {
+      const rel = card.pos.sub(eye)
+      const depth = rel.dot(look)
+      if (depth > 5) {
+        const s = D / depth
+        const cx = rel.dot(ax.right) * s
+        const cy = rel.dot(ax.up) * s
+        const hw = card.halfWidth * s
+        const top = cy + card.top * s
+        const bottom = cy - card.bottom * s
+        const margin = 0.8
+        const overlapX = Math.abs(cx) < hw + CAPTION_W / 2 + margin
+        const overlapY = y + CAPTION_H / 2 + margin > bottom && y - CAPTION_H / 2 - margin < top
+        if (overlapX && overlapY) {
+          const above = top + margin + CAPTION_H / 2
+          const below = bottom - margin - CAPTION_H / 2
+          const limit = D * t.v * 0.85 - CAPTION_H / 2
+          if (above <= limit) y = above
+          else if (below >= -limit) y = below
+          else hide = true
+        }
+      }
+    }
+    this.captionX = 0
+    this.captionY = y
+    const show = a > 0.01 && !hide
+    cap.enabled = show
+    this.captionAlpha = show ? a : 0
+    if (!show) return
+    const pos = eye.add(look.uniformScale(D)).add(ax.up.uniformScale(y))
+    const tr = cap.getTransform()
+    tr.setWorldPosition(pos)
+    const yawQ = quat.fromEulerVec(new vec3(0, Math.atan2(-look.x, -look.z), 0))
+    const pitchQ = quat.angleAxis(Math.asin(Math.max(-1, Math.min(1, look.y))), new vec3(1, 0, 0))
+    tr.setWorldRotation(yawQ.multiply(pitchQ))
+    txt.textFill.color = new vec4(TEXT_WHITE.r, TEXT_WHITE.g, TEXT_WHITE.b, a)
   }
 
   private playGroan(): void {
     if (!this.groanAudio || isNull(this.groanAudio)) return
     this.groanAudio.play(1)
     this.groanPlays++
+    this.captionAge = 0 // the caption shows each time the groan plays
     print("TRIAGE_GROAN " + this.behindId)
   }
 
@@ -311,6 +440,25 @@ export class TriageBehindCue extends BaseScriptComponent {
     const s = this.arrowScale * (1 + 0.12 * Math.sin(this.pulse))
     tr.setWorldScale(new vec3(s, s, s))
     arrow.enabled = true
+  }
+
+  /** The caption: one light line of text. */
+  private buildCaption(): void {
+    const root = global.scene.createSceneObject("GroanCaption")
+    root.setParent(this.sceneObject)
+    const t = root.createComponent("Component.Text") as Text
+    t.text = GROAN_CAPTION
+    t.depthTest = true
+    t.size = sizesAt(CAPTION_DISTANCE_CM).body
+    t.textFill.color = new vec4(TEXT_WHITE.r, TEXT_WHITE.g, TEXT_WHITE.b, 0)
+    t.horizontalAlignment = HorizontalAlignment.Center
+    t.verticalAlignment = VerticalAlignment.Center
+    t.horizontalOverflow = HorizontalOverflow.Overflow
+    t.verticalOverflow = VerticalOverflow.Overflow
+    t.layoutRect = Rect.create(-CAPTION_W / 2, CAPTION_W / 2, -CAPTION_H / 2, CAPTION_H / 2)
+    root.enabled = false
+    this.caption = root
+    this.captionText = t
   }
 
   /** A small chevron arrow (about 5 cm long) built from three bars, pointing along local +X. */

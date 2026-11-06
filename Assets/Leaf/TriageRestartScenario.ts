@@ -62,7 +62,8 @@ export class TriageRestartScenario extends Scenario {
     debrief.setViewerOverride(FAR_VIEWER)
 
     // ---- a first run with a mess in it: a wrong tag, a called-out walker (band on), a card left open, time's up
-    const first = await startRunFar(tm, cards, findSeedWith("A", "off"), "off")
+    // Learn mode: the arrow and the repeating groan are Learn-only now (Drill has neither); Restart keeps the mode
+    const first = await startRunFar(tm, cards, findSeedWith("A", "off"), "off", "learn")
     const firstSig = signature(first)
     const firstWalker = first.walkerId
     const oldWalkerObj = tm.getCasualtyObject(firstWalker) as SceneObject
@@ -107,7 +108,16 @@ export class TriageRestartScenario extends Scenario {
     expect(debrief.getMapObject() === null).toBe(true)
     expect(debrief.getPanelObject() === null).toBe(true)
     expect(debrief.getRestartButtonObject() === null).toBe(true)
-    expect(debrief.getSceneObject().getChildrenCount()).toBe(0) // no debrief objects left
+    // no debrief objects left (the two permanent Scene clear panels are children of this object too, and stay)
+    const debriefRoot = debrief.getSceneObject()
+    let leftOver = 0
+    for (let i = 0; i < debriefRoot.getChildrenCount(); i++) {
+      if (debriefRoot.getChild(i).name.indexOf("SceneClear") !== 0) {
+        leftOver++
+      }
+    }
+    expect(leftOver).toBe(0)
+    expect(debriefRoot.getChildrenCount()).toBe(2)
     expect(countNamed("DebriefPanel")).toBe(0)
     expect(countNamed("DebriefMap")).toBe(0)
     expect(countNamed("NotReachedWorld_")).toBe(0)

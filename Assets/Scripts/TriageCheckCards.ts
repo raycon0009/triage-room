@@ -247,6 +247,12 @@ export class TriageCheckCards extends BaseScriptComponent {
     return this.coveredAt(id, ct.getWorldPosition(), this.viewerPos(), this.lookDir())
   }
 
+  /** Where the open card is (world centre) and how far it reaches sideways, up and down; null when no card is showing. */
+  getCardExtent(): { pos: vec3; halfWidth: number; top: number; bottom: number } | null {
+    if (!this.cardOpen || !this.cardRoot) return null
+    return { pos: this.cardRoot.getTransform().getWorldPosition(), halfWidth: CHECK_W / 2, top: CARD_TOP, bottom: CARD_BOTTOM }
+  }
+
   getOpenCasualtyId(): string | null {
     return this.openId
   }
