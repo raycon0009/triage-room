@@ -446,3 +446,39 @@ Also ruled out: the `Can not Set Media Type for Sink Writer` errors in the log a
 ### Not proven
 - Additive-display look: feel unproven (preview shows a dark floor). The faint zone fill and the dim backrest may be too faint on glasses.
 - New zone label inside the ring after the rename and the new walker spot: checked by numbers (arrival distance) and one capture, not by a LEAF scenario.
+
+## Real miss: Scene clear, fewer hints in Drill, first-seen times (6 Nov 2026)
+
+**Status: gate passed.** Git tag `before-real-miss` marks the starting commit. Node: start-engine 12/12, scoring 23/23, figures 77/77, learn-chips 15/15, debrief-layout 18/18 (was 12), new first-seen 18/18. LEAF 23/23 (20 old + 3 new), each run alone on the final code.
+
+### Change 1: Scene clear
+- New `TriageSceneClear.ts`, a plain class owned by `TriageDebrief` (no new scene object, no scene edits). Button "Scene clear" after the first tag or call-out; hides while a card is open or the run is over. It lazily follows the head (card style: stays put, glides back when it has drifted 12 degrees or more or would cover someone), sits low in view (7.5 cm below centre at 60 cm), and moves aside so it never covers a head or torso (samples from `TriageCheckCards.getBodySamplePoints`) nor the call-out button (`TriageCallOut.getButtonRect`). If there is no clear spot it hides rather than cover anyone.
+- Question "Have you found everyone?" with "Yes, scene clear" / "Keep looking", no numbers. The clock keeps running while it is open. "Keep looking" closes it; the same run goes on. "Yes" ends the run with the new end reason `scene-clear` (a walker still walking arrives first). The debrief opens 0.6 s later with no Time's up panel. Untagged people show NOT REACHED and count as wrong.
+- Decision I made: a card opening (walking up to someone) closes the open question, like "Keep looking". The question is placed a little higher (1.5 cm below centre) because it is taller and has to stay fully in view.
+- Capture: `devpost/captures/real-miss-scene-clear-question.jpg`. The first capture showed the question on top of the call-out button, so the placement now avoids it (this fix was folded into the Change 1 commit).
+
+### Change 2: fewer hints in Drill
+- `TriageBehindCue.ts`: Drill has no arrow and one groan about 1.5 s after Start (it plays whatever the player is looking at). Learn: the groan repeats as before; the arrow shows until the casualty behind is first in view, then never again (`hasSeenBehind`). The caption "A groan, somewhere behind you" (light text, head-locked, 0.2 s in, 3.5 s hold, 0.5 s out) shows each time the groan plays. It sits just above the middle of the view, away from the scenario line, and shifts above or below an open card; if there is no room it is held back.
+- Limit: with a card open at the card's normal size, the caption has no room in the preview's narrow view, so it is hidden (0 of 50 samples visible with a card open in the test). It never covers a card, but it also isn't shown then.
+
+### Change 3: first-seen times
+- New pure `TriageFirstSeen.ts` (`FirstSeenTracker`, no Lens Studio dependencies). `TriageBehindCue` samples all four casualties every frame with its own head-or-torso in-view rule and notes the first tag/call-out; sampling stops when the run ends; `TriageMain.applyRun` resets it (Restart).
+- Debrief lines (small size, the existing minimum 101, centred under the summary): "Everyone in view by 0:48" or "1 person never came into view" / "N people never came into view"; plus "You started before seeing everyone" when the first tag or call-out came before everyone had been in view.
+- Layout (`TriageDebriefLayout.ts`, `layoutPanel(entries, sizes, notes)`): the worst case is three missed plus both lines. To keep it inside the 17 degree limit with no text below the minimum size I took 0.4 cm off the panel's top/bottom padding and 0.2 cm off the row gap. Worst cases now: nobody reached + 1 line 16.01 deg, three missed + 2 lines 16.47 deg (limit 17).
+- Capture: `devpost/captures/real-miss-drill-debrief.jpg` (Drill, two NOT REACHED, "1 person never came into view", "You started before seeing everyone"). Time's up ended this capture's run, so the walker (not called out) is also NOT REACHED.
+
+### Tests
+- New Node: `first-seen.test.mjs` (everyone seen; someone never seen; tagging before everyone was seen; stop at the end; reset on restart; wording). `debrief-layout.test.mjs` gained 6 checks (all 81 combinations plus the view lines, nobody reached, three missed + both lines, ordering, no-lines, minimum size).
+- New LEAF: `triage-scene-clear`, `triage-hints-by-mode`, `triage-debrief-first-seen`.
+- Existing scenarios changed, and why (no check weakened):
+  - `triage-groan-and-arrow-behind` and `triage-restart-and-seeds` now start their run in Learn (`startRunFar(..., "learn")`; helper got a `mode` argument), because the repeating groan and the arrow are Learn-only now. In the groan scenario the "turn away again" line now expects the arrow to stay gone (the groan still resumes), which is the new rule.
+  - `triage-restart-and-seeds`: "no debrief objects left" counted every child of the debrief object; the two permanent Scene clear panels live there, so it now ignores those two by name and also asserts exactly two children remain.
+  - `TriageLeafHelpers.cleanup3` also clears the Scene clear viewer override.
+- Failures on the way: `triage-scene-clear` failed once (the question was too tall to be "in view" at the low position; fixed by raising the question). `triage-restart-and-seeds` failed once (the child count above). Neither failed twice.
+
+### Not proven
+- Whether the Scene clear button's position and the caption feel right on real glasses: feel unproven. Mouse clicks on the new buttons are not tested (LEAF presses only).
+- "In view" is head direction, not eye tracking.
+
+### Demo
+Demo seed layout unchanged. To record a deliberate miss use **Drill** (no arrow, one groan).
