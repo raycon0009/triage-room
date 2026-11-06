@@ -31,8 +31,10 @@
     buttonHeightCm: false
     buttonWidthCm: false
     drillLabel: false
+    drillLine: false
     footnoteText: false
     learnLabel: false
+    learnLine: false
     textColor: false
     titleText: false
   ScriptTypesHidden:
@@ -47,6 +49,8 @@
     - titleText: Triage Room
       drillLabel: Drill
       learnLabel: Learn
+      learnLine: Learn — shows the START steps as you go
+      drillLine: "Drill — the real thing, no hints"
       footnoteText: "Training drill, not certification"
       buttonWidthCm: !<float> 14.000000
       buttonHeightCm: 5.500000
@@ -61,7 +65,9 @@
     - '// @input string titleText = "Triage Room" {"hint":"Panel title"}'
     - '// @input string drillLabel = "Drill" {"hint":"Label on the Drill button (the plain drill, as before)"}'
     - '// @input string learnLabel = "Learn" {"hint":"Label on the Learn button (the same drill with the START guide on the card)"}'
-    - '// @input string footnoteText = "Training drill, not certification" {"hint":"Small line under the button"}'
+    - '// @input string learnLine = "Learn — shows the START steps as you go" {"hint":"One short line under the Learn button"}'
+    - '// @input string drillLine = "Drill — the real thing, no hints" {"hint":"One short line under the Drill button"}'
+    - '// @input string footnoteText = "Training drill, not certification" {"hint":"Small line at the bottom"}'
     - '// @input float buttonWidthCm = 14 {"hint":"Start button width (cm)", "widget":"slider", "min":8, "max":24, "step":0.5}'
     - '// @input float buttonHeightCm = 5.5 {"hint":"Start button height (cm)", "widget":"slider", "min":3, "max":10, "step":0.5}'
     - '// @input vec4 textColor = "{1,1,1,1}" {"hint":"Colour of the title and footnote text", "widget":"color"}'

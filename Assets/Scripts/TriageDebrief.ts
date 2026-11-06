@@ -161,6 +161,8 @@ export class TriageDebrief extends BaseScriptComponent {
    * Restart button inside it is still held by the interactor that just pinched it (a hand's cursor, or LEAF's scripted
    * interactor), and destroying an Interactable while it is targeted makes that interactor touch a dead object
    * ("Object is null"). Disabled, its colliders are off, so the interactor lets go first.
+   * destroyAt stays -1 until the first frame after clear(): a restart rebuilds the whole run in that frame (0.3 s or more
+   * in the preview) and getTime() does not move during a frame, so a timer set inside it would be used up by the rebuild.
    */
   private retired: { obj: SceneObject; destroyAt: number }[] = []
 
@@ -494,6 +496,7 @@ export class TriageDebrief extends BaseScriptComponent {
     const keep: { obj: SceneObject; destroyAt: number }[] = []
     for (const r of this.retired) {
       if (isNull(r.obj)) continue
+      if (r.destroyAt < 0) r.destroyAt = now + RETIRE_SECONDS
       if (now >= r.destroyAt) r.obj.destroy()
       else keep.push(r)
     }
@@ -504,7 +507,7 @@ export class TriageDebrief extends BaseScriptComponent {
     if (this.root && !isNull(this.root)) {
       // hide now, destroy shortly (see `retired`)
       this.root.enabled = false
-      this.retired.push({ obj: this.root, destroyAt: getTime() + RETIRE_SECONDS })
+      this.retired.push({ obj: this.root, destroyAt: -1 })
     }
     this.root = null
     this.map = null

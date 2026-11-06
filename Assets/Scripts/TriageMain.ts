@@ -311,7 +311,7 @@ export class TriageMain extends BaseScriptComponent {
     })
   }
 
-  /** Light play-area outline on the floor + a front wall the seated casualty leans against. */
+  /** Light play-area outline on the floor, with the front wall drawn as a thin line on the floor. */
   private buildRoomShell(): void {
     const edge = [0.5, 0.62, 0.78]
     const hw = ROOM.halfWidth
@@ -322,6 +322,7 @@ export class TriageMain extends BaseScriptComponent {
     this.builder.createPart(this.roomShellRoot, "OutlineLeft", "box", [-hw, 0.5, midZ], [4, 1, len], edge)
     this.builder.createPart(this.roomShellRoot, "OutlineRight", "box", [hw, 0.5, midZ], [4, 1, len], edge)
     this.builder.createPart(this.roomShellRoot, "OutlineBack", "box", [0, 0.5, zB], [hw * 2, 1, 4], edge)
-    this.builder.createPart(this.roomShellRoot, "Wall", "box", [0, 60, zF - 3], [hw * 2, 120, 6], [0.5, 0.58, 0.7])
+    // the front wall is only a thin line where it meets the floor (a flat slab looked unfinished)
+    this.builder.createPart(this.roomShellRoot, "Wall", "box", [0, 0.6, zF - 2], [hw * 2, 1.2, 4], edge)
   }
 }

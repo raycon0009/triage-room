@@ -8,9 +8,9 @@
  * Must not: contain text/UI or check logic. Nothing here is black (additive display). No breathing or idle motion.
  * Local figure frame (floor y=0): lying figures have the head at -Z; sitting figures face +Z.
  *
- * Draw calls: a resting figure is Skin + Rim + FloorRing = 3. Only a walker that has been called out is split into
+ * Draw calls: a resting figure is Skin + Rim = 2. Only a walker that has been called out is split into
  * one object per body part (so the legs and arms can move) until it arrives, then it is merged again.
- * Named scene objects under Casualty_<id>/Body: Skin, Rim, FloorRing, Torso, Head, LegL and LegR (empty anchors that carry the
+ * Named scene objects under Casualty_<id>/Body: Skin, Rim, Torso, Head, LegL and LegR (empty anchors that carry the
  * part's box size in their scale, used by the check card and tests), Dot_<id>, TagBand_<id>.
  */
 import { easeOutCubic, tween } from "./TriageUi"
@@ -18,11 +18,9 @@ import { CasualtyId, CASUALTY_TABLE } from "./TriageData"
 import {
   Baked,
   DIM,
-  FLOOR_RING_COLOUR,
   Look,
   Part,
   Pose,
-  RIM_COLOUR,
   STANDING_POSE,
   bakeParts,
   boundsOf,
@@ -30,6 +28,7 @@ import {
   grounded,
   partsFromPose,
   poseForKind,
+  torsoBandFit,
 } from "./TriageFigurePose"
 
 export interface FigureResources {
@@ -43,7 +42,7 @@ export interface FigureResources {
   sphereUnitCm: number
 }
 
-const WALL = [0.6, 0.68, 0.78]
+const WALL = [0.45, 0.52, 0.66]
 
 /** Tag band colours (light; Expectant is dark grey and gets a white outline, never black). */
 export const TAG_BAND_COLOUR: { [tag: string]: number[] } = {
@@ -59,7 +58,6 @@ function toQuat(r: number[]): quat {
 
 export class TriageFigureBuilder {
   private matCache: { [key: string]: Material } = {}
-  private rimMaterial: Material | null = null
   private looks: { [id: string]: Look } = {}
   private poses: { [id: string]: Pose } = {}
   private rigs: { [id: string]: { [name: string]: SceneObject } } = {}
@@ -78,15 +76,19 @@ export class TriageFigureBuilder {
     return m
   }
 
-  /** Light outline material: unlit, front faces culled, so only a thin halo of the inflated hull shows. */
-  private rim(): Material {
-    if (!this.rimMaterial) {
-      const m = this.res.material.clone()
-      m.mainPass.baseColor = new vec4(RIM_COLOUR[0], RIM_COLOUR[1], RIM_COLOUR[2], 1)
+  /** Thin outline material, tinted to match the figure (its shirt colour, a little lighter): unlit, front faces culled. */
+  private rim(id: string): Material {
+    const look = this.looks[id]
+    const c = look ? [look.shirt[0] + (1 - look.shirt[0]) * 0.15, look.shirt[1] + (1 - look.shirt[1]) * 0.15, look.shirt[2] + (1 - look.shirt[2]) * 0.15] : [0.85, 0.92, 1]
+    const key = "rim:" + c.join(",")
+    let m = this.matCache[key]
+    if (!m) {
+      m = this.res.material.clone()
+      m.mainPass.baseColor = new vec4(c[0], c[1], c[2], 1)
       m.mainPass.cullMode = CullMode.Front
-      this.rimMaterial = m
+      this.matCache[key] = m
     }
-    return this.rimMaterial
+    return m
   }
 
   private lit(): Material {
@@ -170,26 +172,12 @@ export class TriageFigureBuilder {
       r.mesh = rimMesh
       rim.enabled = true
     } else {
-      this.addMesh(body, "Rim", rimMesh, this.rim())
+      this.addMesh(body, "Rim", rimMesh, this.rim(id))
     }
-    this.placeFloorRing(body, parts)
+    // no floor oval: the figure's own outline and baked underside shading keep it on the floor
+    const oldRing = this.child(body, "FloorRing")
+    if (oldRing) oldRing.destroy()
     this.placeAnchors(body, parts)
-  }
-
-  /** A soft, light oval on the floor under the figure so it sits on the floor (no dark shadow). */
-  private placeFloorRing(body: SceneObject, parts: Part[]): void {
-    const b = boundsOf(parts)
-    const w = b.max[0] - b.min[0] + 16
-    const d = b.max[2] - b.min[2] + 16
-    const ringPart: Part = { name: "FloorRing", shape: "ring", pos: [0, 0, 0], rot: [0, 0, 0, 1], size: [w, 0.5, d], col: FLOOR_RING_COLOUR }
-    const mesh = this.meshFrom(bakeParts([ringPart], 0))
-    let ring = this.child(body, "FloorRing")
-    if (ring) {
-      ;(ring.getComponent("Component.RenderMeshVisual") as RenderMeshVisual).mesh = mesh
-    } else {
-      ring = this.addMesh(body, "FloorRing", mesh, this.material(FLOOR_RING_COLOUR))
-    }
-    ring.getTransform().setLocalPosition(new vec3((b.min[0] + b.max[0]) / 2, 0.4, (b.min[2] + b.max[2]) / 2))
   }
 
   /** Empty "Torso" and "Head" objects: world position / rotation of the part, scale = its box size / one box unit. */
@@ -227,7 +215,7 @@ export class TriageFigureBuilder {
     const objs: { [name: string]: SceneObject } = {}
     const parts = partsFromPose(this.poses[id], this.looks[id])
     for (const p of parts) {
-      const local: Part = { name: p.name, shape: p.shape, pos: [0, 0, 0], rot: [0, 0, 0, 1], size: p.size, col: p.col }
+      const local: Part = { ...p, pos: [0, 0, 0], rot: [0, 0, 0, 1] }
       const key = id + ":" + p.name + ":" + p.size.join(",")
       let mesh = this.rigMeshes[key]
       if (!mesh) {
@@ -236,7 +224,7 @@ export class TriageFigureBuilder {
       }
       const so = this.addMesh(body, "P_" + p.name, mesh, this.lit())
       const hull = this.meshFrom(bakeParts([local], DIM.rimWidth, true))
-      this.addMesh(so, "PRim", hull, this.rim())
+      this.addMesh(so, "PRim", hull, this.rim(id))
       objs[p.name] = so
     }
     this.rigs[id] = objs
@@ -294,8 +282,10 @@ export class TriageFigureBuilder {
     const T = 14 // band thickness along the torso's long axis
     const col = TAG_BAND_COLOUR[tag] || TAG_BAND_COLOUR.Red
     const rings: SceneObject[] = []
+    // fitted to the shaped torso: wide enough to clear its widest point along the band's thickness
+    const fit = torsoBandFit(torso.size, 0.5, T + 7, 3)
     const ring = (name: string, w: number, thick: number, c: number[]): void => {
-      const part: Part = { name: name, shape: "ring", pos: [0, 0, 0], rot: [0, 0, 0, 1], size: [torso.size[0] + w, thick, torso.size[2] + w], col: c }
+      const part: Part = { name: name, shape: "ring", pos: [0, 0, 0], rot: [0, 0, 0, 1], size: [fit[0] + w, thick, fit[1] + w], col: c, tone: 1 / 0.95 }
       const so = this.addMesh(root, name, this.meshFrom(bakeParts([part], 0, true)), this.material(c))
       const t = so.getTransform()
       t.setLocalPosition(new vec3(torso.pos[0], torso.pos[1], torso.pos[2]))
@@ -303,10 +293,10 @@ export class TriageFigureBuilder {
       rings.push(so)
     }
     if (tag === "Black") {
-      ring("Outline", 2, T + 7, [1, 1, 1])
-      ring("Band", 7, T, col)
+      ring("Outline", 3, T + 7, [1, 1, 1])
+      ring("Band", 1, T, col)
     } else {
-      ring("Band", 7, T, col)
+      ring("Band", 1, T, col)
     }
     // the ring grows into place round the casualty (0.3 s, wider to its fitted size, thickness unchanged)
     const GROW_FROM = 1.7
@@ -341,7 +331,7 @@ export class TriageFigureBuilder {
     delete this.rigs[id]
     this.rebuildStatic(root, id)
     if (needsBackrest) {
-      this.createPart(body, "Backrest", "box", [0, 30, -18.5], [80, 60, 6], WALL)
+      this.createPart(body, "Backrest", "box", [0, 25, -18.5], [76, 50, 3.5], WALL)
     }
     // marker dot (the check-card opener)
     this.createPart(root, "Dot_" + id, "sphere", [0, 105, 0], [7, 7, 7], dotColour)

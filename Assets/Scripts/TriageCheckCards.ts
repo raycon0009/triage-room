@@ -1011,6 +1011,10 @@ export class TriageCheckCards extends BaseScriptComponent {
       this.titleItem.overrideHeight = learn ? 2.2 : 2.4
       this.statusItem.overrideHeight = learn ? 1.6 : 1.8
       if (this.chipItem) this.chipItem.overrideHeight = learn ? CHIP_H + 0.2 : 0
+      // FlexLayout only manages children that are enabled, and it finds them once, the first time the card is shown.
+      // Without this re-scan, a card first shown in Drill never lays out the chip row in a later Learn run (row stuck at
+      // y = 0, no room made for it), and a card first shown in Learn keeps an extra gap for the hidden row in Drill.
+      this.cardFlex.refreshChildren()
     }
   }
 

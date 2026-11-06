@@ -156,16 +156,23 @@ export class TriageCallOut extends BaseScriptComponent {
     this.figure = this.main.getFigureBuilder()
     this.startPose = this.figure.getPose(id)
     this.figure.startRig(obj, id)
-    // where to stop: inside the circle, on the side the walker comes from, so the MINOR word stays readable
+    // where to stop: inside the circle on the far side from the start position, because the zone label lies on the
+    // near side (facing the player); the walker is sideways-offset towards the side they come from
     const z = this.zoneCentre()
     const p = obj.getTransform().getWorldPosition()
-    let dx = p.x - z.x
-    let dz = p.z - z.z
-    const len = Math.sqrt(dx * dx + dz * dz) || 1
-    dx /= len
-    dz /= len
+    const root = this.main.sceneObject.getTransform().getWorldPosition()
+    let ux = root.x - z.x
+    let uz = root.z - z.z
+    const ulen = Math.sqrt(ux * ux + uz * uz) || 1
+    ux /= ulen
+    uz /= ulen
+    const px = -uz
+    const pz = ux
+    const side = Math.max(-1, Math.min(1, ((p.x - z.x) * px + (p.z - z.z) * pz) / 100))
     const r = state.minorZone.diameterCm / 2 - this.insideEdgeCm
-    this.dest = new vec3(z.x + dx * r, p.y, z.z + dz * r)
+    const far = r * 0.85
+    const sideCm = side * r * 0.4
+    this.dest = new vec3(z.x - ux * far + px * sideCm, p.y, z.z - uz * far + pz * sideCm)
     this.baseY = p.y
     this.setPhase("standing")
     print("TRIAGE_CALL_OUT walker=" + id)

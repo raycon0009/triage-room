@@ -22,13 +22,22 @@ export type Q4 = [number, number, number, number]
 
 export interface Part {
   name: string
-  shape: "capsule" | "ring"
+  /** capsule = (tapered) rounded limb or ball; torso / head = shaped lofts; ring = flat-capped elliptic cylinder */
+  shape: "capsule" | "ring" | "torso" | "head"
   pos: number[]
   /** quaternion x, y, z, w */
   rot: number[]
-  /** [width across X, length along the part's own Y axis, depth across Z] in cm (bounding box) */
+  /** [width across X, length along the part's own Y axis, depth across Z] in cm (bounding box; width / depth at the top end for a tapered capsule) */
   size: number[]
   col: number[]
+  /** capsule only: radius at the bottom end / radius at the top end (default 1) */
+  taper?: number
+  /** capsule only: [position 0..1 from the bottom, radius factor] of a gentle bulge (calf, forearm) */
+  bulge?: number[]
+  /** baked shading: constant brightness factor (joints are a touch darker) */
+  tone?: number
+  /** baked shading: darkening at the two ends of the part (where it meets a joint) */
+  ends?: number
 }
 
 export interface Pose {
@@ -58,35 +67,46 @@ export interface Look {
   hair: number[]
   shoe: number[]
   bandage: boolean
+  /** 0 short, 1 long, 2 bun, 3 side-swept fringe, 4 buzz */
+  hairStyle: number
 }
 
 // ------------------------------------------------------------------ dimensions (cm)
 
 export const DIM = {
-  pelvis: [32, 15, 21],
+  pelvis: [34, 16, 22],
   torsoLen: 46,
-  torso: [36, 46, 21],
-  neck: [9.5, 11, 9.5],
-  head: [21, 24, 22],
-  hair: [22.5, 17, 23.5],
+  torso: [38, 46, 22],
+  neck: [8.2, 11, 8.2],
+  neckBase: 9.6,
+  head: [20.5, 24, 22],
   hipX: 8.5,
   hipDrop: -2,
   thighLen: 38,
   shinLen: 36,
-  thighD: 15,
-  shinD: 11,
-  foot: [9, 22, 8],
+  thighD: 16.5,
+  kneeD: 11.4,
+  shinD: 11.6,
+  ankleD: 7.4,
+  foot: [9.4, 23, 8.6],
   upperArmLen: 26,
   foreArmLen: 23,
-  upperArmD: 9,
-  foreArmD: 7.5,
-  hand: [8, 11, 5],
-  rimWidth: 1.1,
+  upperArmD: 9.6,
+  elbowD: 7.6,
+  foreArmD: 7.4,
+  wristD: 5.6,
+  hand: [8, 11, 4.8],
+  rimWidth: 0.4,
 }
 
-export const RIM_COLOUR = [0.82, 0.96, 1.0]
-export const FLOOR_RING_COLOUR = [0.4, 0.52, 0.72]
+export const FACE_EYE = [0.5, 0.58, 0.74]
+export const FACE_MOUTH = [0.92, 0.56, 0.58]
 export const BANDAGE_COLOUR = [1, 1, 1]
+
+function mixc(a: number[], b: number[], k: number): number[] {
+  return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]
+}
+const WHITE = [1, 1, 1]
 
 // ------------------------------------------------------------------ tiny quaternion / vector maths
 
@@ -407,30 +427,52 @@ export function walkPose(s: number): Pose {
 // ------------------------------------------------------------------ forward kinematics
 
 /** Named body parts for a pose. Names are stable: Pelvis, Torso, Neck, Head, Hair, UpperArmL/R, ForeArmL/R, HandL/R,
- *  ThighL/R, ShinL/R, FootL/R (+ Bandage when look.bandage). */
+ *  ThighL/R, ShinL/R, FootL/R (+ Bandage when look.bandage). Extra blending parts (joint balls, sleeves, cuffs, ankles,
+ *  face, hair pieces) have their own names and are never used by the card or the tests. */
 export function partsFromPose(p: Pose, look: Look): Part[] {
   const parts: Part[] = []
-  const push = (name: string, shape: "capsule" | "ring", pos: number[], rot: number[], size: number[], col: number[]): void => {
-    parts.push({ name, shape, pos: [pos[0], pos[1], pos[2]], rot: [rot[0], rot[1], rot[2], rot[3]], size: size.slice(), col })
+  const push = (name: string, shape: "capsule" | "ring" | "torso" | "head", pos: number[], rot: number[], size: number[], col: number[], ex?: Partial<Part>): void => {
+    parts.push({ name, shape, pos: [pos[0], pos[1], pos[2]], rot: [rot[0], rot[1], rot[2], rot[3]], size: size.slice(), col, ...(ex || {}) })
   }
+  /** a tapered limb piece hanging down (-Y) from `base`: top (proximal) diameter dTop, bottom dBot */
+  const limb = (name: string, base: number[], Q: number[], len: number, dTop: number, dBot: number, col: number[], ex?: Partial<Part>): void => {
+    push(name, "capsule", add(base, qRot(Q, [0, -len / 2, 0])), Q, [dTop, len + (dTop + dBot) / 4, dTop], col, { taper: dBot / dTop, ends: 0.06, ...(ex || {}) })
+  }
+  const ball = (name: string, at: number[], d: number, col: number[]): void => {
+    push(name, "capsule", at, QI, [d, d, d], col, { tone: 0.93 })
+  }
+  const cuffShirt = mixc(look.shirt, WHITE, 0.5)
+  const cuffPants = mixc(look.pants, WHITE, 0.5)
+
   const Q0 = qMul(qMul(rz(p.orient[2]), ry(p.orient[1])), rx(p.orient[0]))
   const root = p.root
   push("Pelvis", "capsule", root, Q0, DIM.pelvis, look.pants)
 
-  // spine, torso
+  // spine, torso (shaped: waist, chest, shoulders)
   const Q1 = qMul(qMul(Q0, rx(p.spine)), rz(p.spineBend))
   const chestBase = add(root, qRot(Q0, [0, 6, 0]))
-  push("Torso", "capsule", add(chestBase, qRot(Q1, [0, DIM.torsoLen / 2, 0])), Q1, DIM.torso, look.shirt)
+  push("Torso", "torso", add(chestBase, qRot(Q1, [0, DIM.torsoLen / 2, 0])), Q1, DIM.torso, look.shirt)
   const chestTop = add(chestBase, qRot(Q1, [0, DIM.torsoLen, 0]))
 
   // neck and head
   const Qn = qMul(Q1, rx(p.neck))
   const neckBase = add(chestTop, qRot(Q1, [0, -3, 0]))
-  push("Neck", "capsule", add(neckBase, qRot(Qn, [0, 5, 0])), Qn, DIM.neck, look.skin)
+  push("Neck", "capsule", add(neckBase, qRot(Qn, [0, 5, 0])), Qn, [DIM.neck[0], DIM.neck[1], DIM.neck[0]], look.skin, { taper: DIM.neckBase / DIM.neck[0] })
   const neckTop = add(neckBase, qRot(Qn, [0, 10, 0]))
   const Qh = qMul(qMul(qMul(Qn, ry(p.head[1])), rx(p.head[0])), rz(p.head[2]))
-  push("Head", "capsule", add(neckTop, qRot(Qh, [0, 9, 1.5])), Qh, DIM.head, look.skin)
-  push("Hair", "capsule", add(neckTop, qRot(Qh, [0, 14.5, -1.5])), Qh, DIM.hair, look.hair)
+  const headC = add(neckTop, qRot(Qh, [0, 9, 1.5]))
+  push("Head", "head", headC, Qh, DIM.head, look.skin)
+  const hp = (v: number[]): number[] => add(headC, qRot(Qh, v))
+  // hair: five styles, chosen by the seed (nothing to do with the casualty's condition)
+  const hs = look.hairStyle
+  const hairSize = hs === 4 ? [21.4, 15, 22.6] : hs === 0 ? [22, 16.5, 23.2] : [22.4, 16.5, 23.4]
+  push("Hair", "capsule", hp([0, hs === 4 ? 4.6 : 5.3, -2.7]), Qh, hairSize, look.hair)
+  if (hs === 1) push("HairBack", "capsule", hp([0, -3.5, -8.2]), Qh, [21.4, 22, 8.4], look.hair, { taper: 0.9 })
+  if (hs === 2) push("HairBun", "capsule", hp([0, 14.5, -5.5]), Qh, [8.4, 8.4, 8.4], look.hair)
+  if (hs === 3) push("HairFringe", "capsule", hp([1.5, 9.4, 7.6]), qMul(Qh, rz(76)), [5.8, 19.5, 6], look.hair)
+  // a minimal, calm face: two small eyes and a small mouth, identical on everyone
+  for (const sx of [-1, 1]) push("Eye" + (sx < 0 ? "L" : "R"), "capsule", hp([sx * 4.5, 1.8, 9.3]), Qh, [3, 4, 2.4], FACE_EYE)
+  push("Mouth", "capsule", hp([0, -5.2, 9.0]), qMul(Qh, rz(90)), [1.3, 5.2, 1.5], FACE_MOUTH)
 
   // arms
   for (const side of [-1, 1]) {
@@ -439,34 +481,48 @@ export function partsFromPose(p: Pose, look: Look): Part[] {
     const elbowFlex = side < 0 ? p.elL : p.elR
     const shoulder = add(chestTop, qRot(Q1, [side * p.shoulderX, -8, 0]))
     const Qs = qMul(qMul(Q1, rx(-sh[0])), rz(side * sh[1]))
-    push("UpperArm" + tag, "capsule", add(shoulder, qRot(Qs, [0, -DIM.upperArmLen / 2, 0])), Qs, [DIM.upperArmD, DIM.upperArmLen + DIM.upperArmD * 0.5, DIM.upperArmD], look.shirt)
+    ball("ShoulderBall" + tag, shoulder, DIM.upperArmD + 1.2, look.shirt)
+    limb("UpperArm" + tag, shoulder, Qs, DIM.upperArmLen, DIM.upperArmD, DIM.elbowD, look.shirt)
     const elbow = add(shoulder, qRot(Qs, [0, -DIM.upperArmLen, 0]))
     const Qe = qMul(Qs, rx(-elbowFlex))
+    ball("ElbowBall" + tag, elbow, DIM.elbowD + 0.2, look.shirt)
+    limb("ForeArm" + tag, elbow, Qe, DIM.foreArmLen, DIM.foreArmD, DIM.wristD, look.skin, { bulge: [0.8, 1.05] })
+    // sleeve: the shirt carries on over the top of the forearm, with a lighter cuff
+    const sl = DIM.foreArmLen * 0.38
+    const dSleeveEnd = DIM.foreArmD + (DIM.wristD - DIM.foreArmD) * 0.38 + 1.0
+    limb("Sleeve" + tag, elbow, Qe, sl - 1.0, DIM.foreArmD + 1.0, dSleeveEnd, look.shirt, { ends: 0 })
+    push("SleeveCuff" + tag, "ring", add(elbow, qRot(Qe, [0, -sl, 0])), Qe, [dSleeveEnd + 1.3, 1.8, dSleeveEnd + 1.3], cuffShirt)
     const faCentre = add(elbow, qRot(Qe, [0, -DIM.foreArmLen / 2, 0]))
-    push("ForeArm" + tag, "capsule", faCentre, Qe, [DIM.foreArmD, DIM.foreArmLen + DIM.foreArmD * 0.5, DIM.foreArmD], look.skin)
     if (look.bandage && side > 0) {
-      push("Bandage", "capsule", add(faCentre, qRot(Qe, [0, 2, 0])), Qe, [DIM.foreArmD + 2.6, 13, DIM.foreArmD + 2.6], BANDAGE_COLOUR)
+      push("Bandage", "capsule", add(faCentre, qRot(Qe, [0, -1, 0])), Qe, [DIM.foreArmD * 0.9 + 2.6, 12, DIM.foreArmD * 0.9 + 2.6], BANDAGE_COLOUR, { taper: 0.9 })
     }
     const wrist = add(elbow, qRot(Qe, [0, -DIM.foreArmLen, 0]))
-    push("Hand" + tag, "capsule", add(wrist, qRot(Qe, [0, -DIM.hand[1] / 2 + 1, 0])), Qe, DIM.hand, look.skin)
+    push("Hand" + tag, "capsule", add(wrist, qRot(Qe, [0, -DIM.hand[1] / 2 + 1, 0])), Qe, DIM.hand, look.skin, { taper: 0.9, ends: 0.04 })
   }
 
   // legs
   for (const side of [-1, 1]) {
     const tag = side < 0 ? "L" : "R"
-    const hp = side < 0 ? p.hipL : p.hipR
+    const hpv = side < 0 ? p.hipL : p.hipR
     const kneeFlex = side < 0 ? p.knL : p.knR
     const ankleFlex = side < 0 ? p.ankL : p.ankR
     const hip = add(root, qRot(Q0, [side * DIM.hipX, DIM.hipDrop, 0]))
-    const Qt = qMul(qMul(Q0, rx(-hp[0])), rz(side * hp[1]))
-    push("Thigh" + tag, "capsule", add(hip, qRot(Qt, [0, -DIM.thighLen / 2, 0])), Qt, [DIM.thighD, DIM.thighLen + DIM.thighD * 0.4, DIM.thighD], look.pants)
+    const Qt = qMul(qMul(Q0, rx(-hpv[0])), rz(side * hpv[1]))
+    ball("HipBall" + tag, hip, DIM.thighD - 0.6, look.pants)
+    limb("Thigh" + tag, hip, Qt, DIM.thighLen, DIM.thighD, DIM.kneeD, look.pants)
     const knee = add(hip, qRot(Qt, [0, -DIM.thighLen, 0]))
     const Qk = qMul(Qt, rx(kneeFlex))
-    push("Shin" + tag, "capsule", add(knee, qRot(Qk, [0, -DIM.shinLen / 2, 0])), Qk, [DIM.shinD, DIM.shinLen + DIM.shinD * 0.4, DIM.shinD], look.pants)
+    ball("KneeBall" + tag, knee, DIM.kneeD + 0.1, look.pants)
+    // trouser leg stops above the ankle with a lighter cuff; a bare ankle shows below it
+    const legLen = DIM.shinLen - 6.5
+    const dCuff = DIM.shinD + (DIM.ankleD - DIM.shinD) * (legLen / DIM.shinLen)
+    limb("Shin" + tag, knee, Qk, legLen, DIM.shinD, dCuff, look.pants, { bulge: [0.62, 1.05], ends: 0.05 })
+    push("TrouserCuff" + tag, "ring", add(knee, qRot(Qk, [0, -legLen - 1.5, 0])), Qk, [dCuff + 1.5, 2.6, dCuff + 1.5], cuffPants)
     const ankle = add(knee, qRot(Qk, [0, -DIM.shinLen, 0]))
+    limb("Ankle" + tag, add(knee, qRot(Qk, [0, -legLen + 2, 0])), Qk, DIM.shinLen - legLen + 3, 5.8, 5.2, look.skin, { ends: 0 })
     const Qf = qMul(Qk, rx(ankleFlex))
-    // foot: capsule long axis along the foot's +Z
-    push("Foot" + tag, "capsule", add(ankle, qRot(Qf, [0, -3.5, 7])), qMul(Qf, rx(90)), [DIM.foot[0], DIM.foot[1], DIM.foot[2]], look.shoe)
+    // shoe: capsule long axis along the foot's +Z, heel wider than the toe
+    push("Foot" + tag, "capsule", add(ankle, qRot(Qf, [0, -3.4, 6.6])), qMul(Qf, rx(90)), [DIM.foot[0], DIM.foot[1], DIM.foot[2]], look.shoe, { taper: 1.12, ends: 0.04 })
   }
   return parts
 }
@@ -478,17 +534,17 @@ export function findPart(parts: Part[], name: string): Part {
 
 // ------------------------------------------------------------------ palettes chosen by seed
 
-/** Light clothing colours (nothing dark: the display is additive). */
+/** Clothing colours: more saturated than before but still light (nothing dark: the display is additive). */
 export const SHIRT_PALETTE: number[][] = [
-  [0.6, 0.93, 0.72], // mint
-  [0.6, 0.8, 1.0], // sky
-  [0.83, 0.76, 0.98], // lilac
-  [1.0, 0.78, 0.6], // peach
-  [0.98, 0.91, 0.52], // butter
-  [1.0, 0.7, 0.8], // rose
-  [0.62, 0.96, 0.92], // aqua
-  [0.8, 0.96, 0.52], // lime
-  [1.0, 0.68, 0.62], // coral
+  [0.45, 0.92, 0.65], // mint
+  [0.5, 0.78, 1.0], // sky
+  [0.78, 0.66, 1.0], // lilac
+  [1.0, 0.7, 0.42], // peach
+  [1.0, 0.9, 0.36], // butter
+  [1.0, 0.56, 0.72], // rose
+  [0.4, 0.93, 0.9], // aqua
+  [0.72, 0.95, 0.36], // lime
+  [1.0, 0.56, 0.5], // coral
 ]
 /** Skin tones, all light enough to stay visible (darkest still has a luminance above 0.55). */
 export const SKIN_PALETTE: number[][] = [
@@ -499,19 +555,28 @@ export const SKIN_PALETTE: number[][] = [
   [0.75, 0.56, 0.43],
 ]
 export const HAIR_PALETTE: number[][] = [
-  [0.88, 0.76, 0.5],
+  [0.9, 0.78, 0.46],
   [0.76, 0.56, 0.4],
   [0.9, 0.9, 0.93],
-  [0.88, 0.52, 0.36],
+  [0.9, 0.5, 0.34],
   [0.68, 0.54, 0.45],
 ]
+/** Trousers: light but clearly coloured, so they do not wash out to white. */
 export const PANTS_PALETTE: number[][] = [
-  [0.72, 0.78, 0.93],
-  [0.89, 0.85, 0.71],
-  [0.82, 0.82, 0.88],
-  [0.7, 0.87, 0.83],
+  [0.45, 0.6, 0.93], // denim
+  [0.86, 0.74, 0.46], // khaki
+  [0.55, 0.78, 0.6], // sage
+  [0.78, 0.6, 0.8], // mauve
+  [0.42, 0.76, 0.78], // teal
 ]
-const SHOE = [0.95, 0.95, 0.99]
+/** Shoes: a different family from clothes and skin. */
+export const SHOE_PALETTE: number[][] = [
+  [0.97, 0.97, 1.0],
+  [0.62, 0.8, 1.0],
+  [1.0, 0.82, 0.34],
+  [0.93, 0.6, 0.6],
+  [0.72, 0.9, 0.78],
+]
 
 function seededOrder(n: number, seed: number, salt: number): number[] {
   let s = (Math.imul(seed | 0, 2654435761) ^ Math.imul(salt, 40503)) >>> 0 || 1
@@ -530,20 +595,56 @@ function seededOrder(n: number, seed: number, salt: number): number[] {
   return a
 }
 
+function colourDistance(a: number[], b: number[]): number {
+  return Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]))
+}
+
+/** First palette entry at or after `from` (cyclic) that is not used yet and passes `ok`; falls back to any unused one. */
+function pickDistinct(n: number, order: number[], from: number, used: { [k: number]: boolean }, ok: (i: number) => boolean): number {
+  for (let k = 0; k < n; k++) {
+    const c = order[(from + k) % n]
+    if (!used[c] && ok(c)) return c
+  }
+  for (let k = 0; k < n; k++) {
+    const c = order[(from + k) % n]
+    if (!used[c]) return c
+  }
+  return order[from % n]
+}
+
+const MIN_CLASH = 0.22
+
 /** The look of the index-th casualty of a run: the same seed always gives the same looks; within a run the
- *  first 5 casualties get different clothing, skin tone and hair (a run has 4). */
+ *  first 5 casualties get different clothing, skin tone, hair and shoes, and shirt, trousers, skin and shoes of one
+ *  person are never near-identical colours. Nothing here depends on the casualty's condition. */
 export function lookFor(seed: number, index: number, bandage: boolean): Look {
-  const shirt = seededOrder(SHIRT_PALETTE.length, seed, 1)[index % SHIRT_PALETTE.length]
-  const skin = seededOrder(SKIN_PALETTE.length, seed, 2)[index % SKIN_PALETTE.length]
-  const hair = seededOrder(HAIR_PALETTE.length, seed, 3)[index % HAIR_PALETTE.length]
-  const pants = seededOrder(PANTS_PALETTE.length, seed, 4)[index % PANTS_PALETTE.length]
+  const shirtOrder = seededOrder(SHIRT_PALETTE.length, seed, 1)
+  const skinOrder = seededOrder(SKIN_PALETTE.length, seed, 2)
+  const hairOrder = seededOrder(HAIR_PALETTE.length, seed, 3)
+  const pantsOrder = seededOrder(PANTS_PALETTE.length, seed, 4)
+  const shoeOrder = seededOrder(SHOE_PALETTE.length, seed, 5)
+  const styleOrder = seededOrder(5, seed, 6)
+  const usedShirt: { [k: number]: boolean } = {}
+  const usedPants: { [k: number]: boolean } = {}
+  const usedShoe: { [k: number]: boolean } = {}
+  let shirt = 0, pants = 0, shoe = 0, skin = 0
+  for (let j = 0; j <= index; j++) {
+    skin = skinOrder[j % SKIN_PALETTE.length]
+    shirt = pickDistinct(SHIRT_PALETTE.length, shirtOrder, j, usedShirt, (c) => colourDistance(SHIRT_PALETTE[c], SKIN_PALETTE[skin]) > MIN_CLASH)
+    usedShirt[shirt] = true
+    pants = pickDistinct(PANTS_PALETTE.length, pantsOrder, j, usedPants, (c) => colourDistance(PANTS_PALETTE[c], SHIRT_PALETTE[shirt]) > MIN_CLASH && colourDistance(PANTS_PALETTE[c], SKIN_PALETTE[skin]) > MIN_CLASH)
+    usedPants[pants] = true
+    shoe = pickDistinct(SHOE_PALETTE.length, shoeOrder, j, usedShoe, (c) => colourDistance(SHOE_PALETTE[c], PANTS_PALETTE[pants]) > MIN_CLASH && colourDistance(SHOE_PALETTE[c], SHIRT_PALETTE[shirt]) > MIN_CLASH)
+    usedShoe[shoe] = true
+  }
   return {
     shirt: SHIRT_PALETTE[shirt],
     pants: PANTS_PALETTE[pants],
     skin: SKIN_PALETTE[skin],
-    hair: HAIR_PALETTE[hair],
-    shoe: SHOE,
+    hair: HAIR_PALETTE[hairOrder[index % HAIR_PALETTE.length]],
+    shoe: SHOE_PALETTE[shoe],
     bandage: bandage,
+    hairStyle: styleOrder[index % 5],
   }
 }
 
@@ -553,54 +654,63 @@ export interface Geometry {
   pos: number[]
   nrm: number[]
   idx: number[]
+  /** position along the part's own axis, 0 (bottom) to 1 (top), per vertex: used for baked shading */
+  u: number[]
 }
 
+/** vertices round each ring of a body part; ring (band) cylinders use more so they look round */
 const SEGMENTS = 14
-const CAP_STEPS = 4
+const RING_SEGMENTS = 28
+const CAP_STEPS = 3
 
-/**
- * A rounded capsule along its local Y axis: elliptic cross-section (radii a/2 across X, b/2 across Z), total
- * length L including the rounded ends. With L == a == b it is a sphere; wide and flat ones are rounded slabs.
- */
-function capsuleGeometry(a: number, L: number, b: number): Geometry {
-  const ra = a / 2
-  const rb = b / 2
-  const H = L / 2
-  const c = Math.max(0.01, Math.min(ra, rb, H))
-  const h = Math.max(0, H - c)
-  const rings: { y: number; s: number; ny: number }[] = []
-  for (let k = 0; k <= CAP_STEPS; k++) {
-    const phi = ((-90 + (90 * k) / CAP_STEPS) * Math.PI) / 180
-    rings.push({ y: -h + c * Math.sin(phi), s: Math.cos(phi), ny: Math.sin(phi) / c })
-  }
-  for (let k = h > 0.05 ? 0 : 1; k <= CAP_STEPS; k++) {
-    const phi = ((90 * k) / CAP_STEPS * Math.PI) / 180
-    rings.push({ y: h + c * Math.sin(phi), s: Math.cos(phi), ny: Math.sin(phi) / c })
-  }
-  const g: Geometry = { pos: [], nrm: [], idx: [] }
-  for (const r of rings) {
-    for (let j = 0; j < SEGMENTS; j++) {
-      const th = (j / SEGMENTS) * Math.PI * 2
-      const ct = Math.cos(th)
-      const st = Math.sin(th)
-      g.pos.push(ra * r.s * ct, r.y, rb * r.s * st)
-      let nx = (r.s * ct) / ra
-      let ny = r.ny
-      let nz = (r.s * st) / rb
-      const l = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1
-      nx /= l
-      ny /= l
-      nz /= l
+interface Station {
+  y: number
+  ra: number
+  rb: number
+}
+
+/** Rings of a surface of revolution-like part, joined into a smooth mesh. Normals come from the ring tangents, so
+ *  tapered and shaped parts shade smoothly. The first / last station may have zero radius (a pole). */
+function loftGeometry(st: Station[], segs: number): Geometry {
+  const g: Geometry = { pos: [], nrm: [], idx: [], u: [] }
+  const y0 = st[0].y
+  const span = st[st.length - 1].y - y0 || 1
+  for (let i = 0; i < st.length; i++) {
+    const prev = st[Math.max(0, i - 1)]
+    const next = st[Math.min(st.length - 1, i + 1)]
+    const dy = next.y - prev.y
+    const dra = next.ra - prev.ra
+    const drb = next.rb - prev.rb
+    const s = st[i]
+    for (let j = 0; j < segs; j++) {
+      const th = (j / segs) * Math.PI * 2
+      const c = Math.cos(th)
+      const sn = Math.sin(th)
+      g.pos.push(s.ra * c, s.y, s.rb * sn)
+      let nx = s.rb * c * dy
+      let ny = -(s.rb * dra * c * c + s.ra * drb * sn * sn)
+      let nz = s.ra * sn * dy
+      const l = Math.sqrt(nx * nx + ny * ny + nz * nz)
+      if (l < 1e-6 || (s.ra < 0.05 && s.rb < 0.05)) {
+        nx = 0
+        nz = 0
+        ny = i === 0 ? -1 : 1
+      } else {
+        nx /= l
+        ny /= l
+        nz /= l
+      }
       g.nrm.push(nx, ny, nz)
+      g.u.push((s.y - y0) / span)
     }
   }
-  for (let i = 0; i < rings.length - 1; i++) {
-    for (let j = 0; j < SEGMENTS; j++) {
-      const j2 = (j + 1) % SEGMENTS
-      const v00 = i * SEGMENTS + j
-      const v01 = i * SEGMENTS + j2
-      const v10 = (i + 1) * SEGMENTS + j
-      const v11 = (i + 1) * SEGMENTS + j2
+  for (let i = 0; i < st.length - 1; i++) {
+    for (let j = 0; j < segs; j++) {
+      const j2 = (j + 1) % segs
+      const v00 = i * segs + j
+      const v01 = i * segs + j2
+      const v10 = (i + 1) * segs + j
+      const v11 = (i + 1) * segs + j2
       addTri(g, v00, v01, v11)
       addTri(g, v00, v11, v10)
     }
@@ -608,15 +718,124 @@ function capsuleGeometry(a: number, L: number, b: number): Geometry {
   return g
 }
 
-/** A solid elliptic cylinder along local Y (flat caps): used for tag bands and the floor ring. */
+/**
+ * A rounded, optionally tapered capsule along its local Y axis. a / b = width / depth at the TOP end, L = total length
+ * including the rounded ends, taper = bottom radius / top radius, bulge = [position 0..1 from the bottom, radius factor].
+ * With L == a == b it is a sphere.
+ */
+function capsuleStations(a: number, L: number, b: number, taper: number, bulge?: number[]): Station[] {
+  const H = L / 2
+  const raT = a / 2
+  const rbT = b / 2
+  const raB = raT * taper
+  const rbB = rbT * taper
+  const cT = Math.max(0.01, Math.min(raT, rbT, H))
+  const cB = Math.max(0.01, Math.min(raB, rbB, H))
+  const yTop = H - cT
+  const yBot = -H + cB
+  const st: Station[] = []
+  for (let k = 0; k <= CAP_STEPS; k++) {
+    const phi = ((-90 + (90 * k) / CAP_STEPS) * Math.PI) / 180
+    st.push({ y: yBot - cB + cB * (1 + Math.sin(phi)) - 0 + 0, ra: raB * Math.cos(phi), rb: rbB * Math.cos(phi) })
+  }
+  // y of the bottom cap rings: -H + cB (1 + sin phi)
+  for (let k = 0; k <= CAP_STEPS; k++) {
+    const phi = ((-90 + (90 * k) / CAP_STEPS) * Math.PI) / 180
+    st[k].y = -H + cB * (1 + Math.sin(phi))
+  }
+  if (bulge && yTop - yBot > 1) {
+    const f = bulge[0]
+    const t = (f * (L - cT - cB) + cB) / L
+    const yy = -H + t * L
+    const k = (yy - yBot) / (yTop - yBot)
+    const lin = taper + (1 - taper) * k
+    st.push({ y: yy, ra: raT * lin * bulge[1], rb: rbT * lin * bulge[1] })
+  }
+  for (let k = yTop - yBot > 0.05 ? 0 : 1; k <= CAP_STEPS; k++) {
+    const phi = ((90 * k) / CAP_STEPS * Math.PI) / 180
+    st.push({ y: yTop + cT * Math.sin(phi), ra: raT * Math.cos(phi), rb: rbT * Math.cos(phi) })
+  }
+  return st
+}
+
+/** Smooth (Catmull-Rom) resampling of a hand-written profile [u, kx, kz] into stations of a given size [W, L, D]. */
+function profileStations(prof: number[][], W: number, L: number, D: number, sub: number): Station[] {
+  const out: Station[] = []
+  const n = prof.length
+  const at = (i: number): number[] => prof[Math.max(0, Math.min(n - 1, i))]
+  const cr = (p0: number, p1: number, p2: number, p3: number, t: number): number =>
+    0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t)
+  for (let i = 0; i < n - 1; i++) {
+    for (let k = 0; k < sub; k++) {
+      const t = k / sub
+      const u = cr(at(i - 1)[0], at(i)[0], at(i + 1)[0], at(i + 2)[0], t)
+      const kx = Math.max(0, cr(at(i - 1)[1], at(i)[1], at(i + 1)[1], at(i + 2)[1], t))
+      const kz = Math.max(0, cr(at(i - 1)[2], at(i)[2], at(i + 1)[2], at(i + 2)[2], t))
+      out.push({ y: -L / 2 + u * L, ra: (kx * W) / 2, rb: (kz * D) / 2 })
+    }
+  }
+  out.push({ y: L / 2, ra: 0, rb: 0 })
+  return out
+}
+
+/** Torso profile along its length: [position 0..1 from the hips up, width fraction, depth fraction]. Waist, chest, shoulders. */
+export const TORSO_PROFILE: number[][] = [
+  [0.0, 0.0, 0.0],
+  [0.03, 0.55, 0.6],
+  [0.1, 0.8, 0.84],
+  [0.26, 0.72, 0.8],
+  [0.43, 0.8, 0.92],
+  [0.6, 0.92, 1.0],
+  [0.78, 1.0, 0.94],
+  [0.9, 0.84, 0.76],
+  [0.965, 0.46, 0.5],
+  [1.0, 0.0, 0.0],
+]
+/** Head profile from the chin up: a gentle egg, narrower at the jaw. */
+export const HEAD_PROFILE: number[][] = [
+  [0.0, 0.0, 0.0],
+  [0.03, 0.3, 0.34],
+  [0.1, 0.58, 0.62],
+  [0.22, 0.78, 0.8],
+  [0.4, 0.95, 0.95],
+  [0.58, 1.0, 1.0],
+  [0.75, 0.95, 0.96],
+  [0.88, 0.78, 0.82],
+  [0.96, 0.46, 0.5],
+  [1.0, 0.0, 0.0],
+]
+
+/** Section (width, depth) of the torso at position u (0..1 up the torso) for a torso of the given size. */
+function torsoSection(size: number[], u: number): number[] {
+  const st = profileStations(TORSO_PROFILE, size[0], size[1], size[2], 6)
+  const y = -size[1] / 2 + u * size[1]
+  let best = st[0]
+  for (const s of st) if (Math.abs(s.y - y) < Math.abs(best.y - y)) best = s
+  return [best.ra * 2, best.rb * 2]
+}
+
+/** Size of a tag band (width, depth) that clears the torso everywhere along `thick` cm centred on position uC. */
+export function torsoBandFit(size: number[], uC: number, thick: number, clearance: number): number[] {
+  const half = thick / 2 / size[1]
+  let w = 0
+  let d = 0
+  for (let k = 0; k <= 8; k++) {
+    const sec = torsoSection(size, Math.max(0, Math.min(1, uC - half + (2 * half * k) / 8)))
+    w = Math.max(w, sec[0])
+    d = Math.max(d, sec[1])
+  }
+  return [w + clearance, d + clearance]
+}
+
+/** A solid elliptic cylinder along local Y (flat caps): used for tag bands and cuffs. */
 function ringGeometry(a: number, L: number, b: number): Geometry {
   const ra = a / 2
   const rb = b / 2
   const H = L / 2
-  const g: Geometry = { pos: [], nrm: [], idx: [] }
+  const g: Geometry = { pos: [], nrm: [], idx: [], u: [] }
   for (const y of [-H, H]) {
-    for (let j = 0; j < SEGMENTS; j++) {
-      const th = (j / SEGMENTS) * Math.PI * 2
+    for (let j = 0; j < RING_SEGMENTS; j++) {
+      const th = (j / RING_SEGMENTS) * Math.PI * 2
       const ct = Math.cos(th)
       const st = Math.sin(th)
       g.pos.push(ra * ct, y, rb * st)
@@ -624,25 +843,28 @@ function ringGeometry(a: number, L: number, b: number): Geometry {
       const nz = st / rb
       const l = Math.sqrt(nx * nx + nz * nz) || 1
       g.nrm.push(nx / l, 0, nz / l)
+      g.u.push(0.5)
     }
   }
-  for (let j = 0; j < SEGMENTS; j++) {
-    const j2 = (j + 1) % SEGMENTS
-    addTri(g, j, j2, SEGMENTS + j2)
-    addTri(g, j, SEGMENTS + j2, SEGMENTS + j)
+  for (let j = 0; j < RING_SEGMENTS; j++) {
+    const j2 = (j + 1) % RING_SEGMENTS
+    addTri(g, j, j2, RING_SEGMENTS + j2)
+    addTri(g, j, RING_SEGMENTS + j2, RING_SEGMENTS + j)
   }
   for (const sgn of [-1, 1]) {
     const centre = g.pos.length / 3
     g.pos.push(0, sgn * H, 0)
     g.nrm.push(0, sgn, 0)
+    g.u.push(0.5)
     const base = g.pos.length / 3
-    for (let j = 0; j < SEGMENTS; j++) {
-      const th = (j / SEGMENTS) * Math.PI * 2
+    for (let j = 0; j < RING_SEGMENTS; j++) {
+      const th = (j / RING_SEGMENTS) * Math.PI * 2
       g.pos.push(ra * Math.cos(th), sgn * H, rb * Math.sin(th))
       g.nrm.push(0, sgn, 0)
+      g.u.push(0.5)
     }
-    for (let j = 0; j < SEGMENTS; j++) {
-      addTri(g, centre, base + j, base + ((j + 1) % SEGMENTS))
+    for (let j = 0; j < RING_SEGMENTS; j++) {
+      addTri(g, centre, base + j, base + ((j + 1) % RING_SEGMENTS))
     }
   }
   return g
@@ -657,7 +879,7 @@ function addTri(g: Geometry, i0: number, i1: number, i2: number): void {
   const nx = uy * vz - uz * vy
   const ny = uz * vx - ux * vz
   const nz = ux * vy - uy * vx
-  if (nx * nx + ny * ny + nz * nz < 1e-12) return // degenerate (a pole)
+  if (nx * nx + ny * ny + nz * nz < 1e-9) return // degenerate (a pole)
   const sx = g.nrm[i0 * 3] + g.nrm[i1 * 3] + g.nrm[i2 * 3]
   const sy = g.nrm[i0 * 3 + 1] + g.nrm[i1 * 3 + 1] + g.nrm[i2 * 3 + 1]
   const sz = g.nrm[i0 * 3 + 2] + g.nrm[i1 * 3 + 2] + g.nrm[i2 * 3 + 2]
@@ -667,10 +889,13 @@ function addTri(g: Geometry, i0: number, i1: number, i2: number): void {
 
 const geomCache: { [k: string]: Geometry } = {}
 export function partGeometry(p: Part): Geometry {
-  const key = p.shape + ":" + p.size.map((v) => Math.round(v * 100)).join(",")
+  const key = p.shape + ":" + p.size.map((v) => Math.round(v * 100)).join(",") + ":" + (p.taper === undefined ? 1 : p.taper) + ":" + (p.bulge ? p.bulge.join(",") : "")
   let g = geomCache[key]
   if (!g) {
-    g = p.shape === "ring" ? ringGeometry(p.size[0], p.size[1], p.size[2]) : capsuleGeometry(p.size[0], p.size[1], p.size[2])
+    if (p.shape === "ring") g = ringGeometry(p.size[0], p.size[1], p.size[2])
+    else if (p.shape === "torso") g = loftGeometry(profileStations(TORSO_PROFILE, p.size[0], p.size[1], p.size[2], 3), SEGMENTS)
+    else if (p.shape === "head") g = loftGeometry(profileStations(HEAD_PROFILE, p.size[0], p.size[1], p.size[2], 3), SEGMENTS)
+    else g = loftGeometry(capsuleStations(p.size[0], p.size[1], p.size[2], p.taper === undefined ? 1 : p.taper, p.bulge), SEGMENTS)
     geomCache[key] = g
   }
   return g
@@ -680,6 +905,18 @@ export interface Baked {
   /** interleaved: position (3), normal (3), colour (4) */
   verts: number[]
   idx: number[]
+}
+
+/** Soft baked shading: a gentle top-to-bottom gradient (faces that point down are a bit darker), darker at the ends of
+ *  limbs where they meet a joint. Never below about 0.8, so the darkest side stays clearly visible. */
+function bakedShade(p: Part, ny: number, u: number, withNormal: boolean): number {
+  let f = p.tone === undefined ? 1 : p.tone
+  f *= withNormal ? 0.9 + 0.1 * Math.max(-1, Math.min(1, ny)) : 0.95
+  if (p.ends) {
+    const e = Math.abs(2 * u - 1)
+    f *= 1 - p.ends * Math.pow(e, 4)
+  }
+  return f
 }
 
 /**
@@ -695,6 +932,7 @@ export function bakeParts(parts: Part[], inflate: number = 0, local: boolean = f
     for (let i = 0; i < n; i++) {
       const lp: number[] = [g.pos[i * 3] + g.nrm[i * 3] * inflate, g.pos[i * 3 + 1] + g.nrm[i * 3 + 1] * inflate, g.pos[i * 3 + 2] + g.nrm[i * 3 + 2] * inflate]
       const ln = [g.nrm[i * 3], g.nrm[i * 3 + 1], g.nrm[i * 3 + 2]]
+      const rn = qRot(p.rot, ln)
       let wp: number[]
       let wn: number[]
       if (local) {
@@ -702,9 +940,10 @@ export function bakeParts(parts: Part[], inflate: number = 0, local: boolean = f
         wn = ln
       } else {
         wp = add(p.pos, qRot(p.rot, lp))
-        wn = qRot(p.rot, ln)
+        wn = rn
       }
-      out.verts.push(wp[0], wp[1], wp[2], wn[0], wn[1], wn[2], p.col[0], p.col[1], p.col[2], 1)
+      const f = inflate > 0 ? 1 : bakedShade(p, rn[1], g.u[i], !local)
+      out.verts.push(wp[0], wp[1], wp[2], wn[0], wn[1], wn[2], p.col[0] * f, p.col[1] * f, p.col[2] * f, 1)
     }
     for (const k of g.idx) out.idx.push(base + k)
   }

@@ -28,6 +28,14 @@ check("standing: 150-185 cm tall, feet on the floor", st.max[1] >= 150 && st.max
 check("all clothing colours light (luminance >= 0.6)", F.SHIRT_PALETTE.every((c) => lum(c) >= 0.6))
 check("all skin tones visible (luminance >= 0.55)", F.SKIN_PALETTE.every((c) => lum(c) >= 0.55))
 check("all hair colours visible (luminance >= 0.5)", F.HAIR_PALETTE.every((c) => lum(c) >= 0.5))
+check("all trousers and shoes light enough (luminance >= 0.55) but not white", F.PANTS_PALETTE.concat(F.SHOE_PALETTE).every((c) => lum(c) >= 0.55) && F.PANTS_PALETTE.every((c) => Math.min(...c) < 0.7))
+check("clothing, skin and shoes are different colours on every casualty", [1,2,3,4,5,6,7,8].every((s) => [0,1,2,3].every((i) => { const l = F.lookFor(s, i, false); const d = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1], a[2]-b[2]); return d(l.shirt, l.pants) > 0.2 && d(l.shirt, l.skin) > 0.2 && d(l.pants, l.skin) > 0.2 && d(l.shoe, l.pants) > 0.2 })))
+check("hair styles differ within a run (5 styles)", [1,2,3,4,5].every((s) => new Set([0,1,2,3].map((i) => F.lookFor(s, i, false).hairStyle)).size === 4))
+const fig = F.partsFromPose(F.POSES.lying_back, F.lookFor(1, 0, false))
+check("sleeve cuffs, trouser cuffs, shoes and a face exist", ["SleeveCuffL","TrouserCuffR","FootL","EyeL","Mouth"].every((n) => fig.some((p) => p.name === n)))
+check("outline is thin (<= 0.5 cm)", F.DIM.rimWidth <= 0.5)
+{ const fit = F.torsoBandFit(F.DIM.torso, 0.5, 14, 3); check("tag band clears the shaped torso", fit[0] >= 30 && fit[0] <= F.DIM.torso[0] + 4 && fit[1] >= 18, fit.map((v) => v.toFixed(1)).join(" x ")) }
+{ const v = F.bakeParts(fig).verts; let mn = 9; for (let i = 0; i < v.length; i += 10) mn = Math.min(mn, lum([v[i+6], v[i+7], v[i+8]])); check("darkest baked vertex stays clearly visible (luminance > 0.4)", mn > 0.4, mn.toFixed(2)) }
 let distinct = true, repeat = true
 for (let seed = 1; seed <= 500; seed++) {
   const looks = [0, 1, 2, 3].map((i) => F.lookFor(seed, i, false))

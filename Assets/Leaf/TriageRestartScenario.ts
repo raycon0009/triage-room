@@ -10,6 +10,7 @@
 import {Scenario} from "Leaf.lspkg/Scenarios/scenario/Scenario"
 import {expect} from "Leaf.lspkg/Utils/common/Expect"
 import {sleep} from "Leaf.lspkg/Utils/common/Utils"
+import {findInteractableByName} from "Leaf.lspkg/Interactors/InteractableUtils"
 import {
   getTriageMain,
   getCards,
@@ -82,7 +83,11 @@ export class TriageRestartScenario extends Scenario {
     expect(debrief.getReason()).toBe("time")
     expect(countNamed("TagBand_")).toBeGreaterThan(1)
     expect(countNamed("DebriefPanel")).toBe(1)
-    await sleep(1300) // the panel is up
+    // wait (up to 4 s) until the reveal has made the Restart button pressable, instead of a fixed 1.3 s that raced the reveal
+    for (let i = 0; i < 40 && !findInteractableByName("RestartButton"); i++) {
+      await sleep(100)
+    }
+    await sleep(200)
 
     // ---- pinch Restart (the real button)
     expect((debrief.getRestartButtonObject() as SceneObject) === null).toBe(false)

@@ -28,9 +28,12 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
-    label: false
-    textColor: false
-    textSize: false
+    line1Size: false
+    line2Size: false
+    zoneLine1: false
+    zoneLine2: false
+    zoneRingWidthCm: false
+    zoneTextColor: false
   ScriptTypesHidden:
     {}
   ReadMe: !<reference> 00000000-0000-0000-0000-000000000000
@@ -40,17 +43,23 @@
   Attachments:
     []
   DefaultScriptInputs:
-    - label: MINOR
-      textSize: !<float> 380.000000
-      textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
+    - zoneLine1: GREEN — MINOR
+      zoneLine2: Walking wounded
+      line1Size: !<float> 270.000000
+      line2Size: !<float> 150.000000
+      zoneTextColor: !<Vec4> {x: 0.850000, y: 1.000000, z: 0.900000, w: 1.000000}
+      zoneRingWidthCm: 2.400000
   ScriptTypes:
     -
       {}
   InputLines:
-    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageZoneUI - MINOR floor label</span>"}'
+    - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">TriageZoneUI - green zone marking and label</span>"}'
     - '// @ui {"widget":"separator"}'
     - '// @ui {"widget":"group_start", "label":"Settings"}'
-    - '// @input string label = "MINOR" {"hint":"Word shown on the green zone"}'
-    - '// @input float textSize = 380 {"hint":"Text size (em-square cm = size / 43.9)", "widget":"slider", "min":100, "max":900, "step":10}'
-    - '// @input vec4 textColor = "{1,1,1,1}" {"hint":"Label colour (white reads on the green disc; never black)", "widget":"color"}'
+    - '// @input string zoneLine1 = "GREEN — MINOR" {"hint":"First line on the green zone"}'
+    - '// @input string zoneLine2 = "Walking wounded" {"hint":"Smaller second line"}'
+    - '// @input float line1Size = 270 {"hint":"First line size (em-square cm = size / 43.9)", "widget":"slider", "min":100, "max":600, "step":10}'
+    - '// @input float line2Size = 150 {"hint":"Second line size", "widget":"slider", "min":60, "max":400, "step":10}'
+    - '// @input vec4 zoneTextColor = "{0.85,1,0.9,1}" {"hint":"Label colour (light; never black)", "widget":"color"}'
+    - '// @input float zoneRingWidthCm = 2.4 {"hint":"Width of the ring outline in cm", "widget":"slider", "min":1, "max":6, "step":0.1}'
     - '// @ui {"widget":"group_end"}'

@@ -404,3 +404,45 @@ Taken with a temporary demo script that tagged X and C (script and scene object 
 
 ### Captures
 `devpost/captures/polish-learn-card.jpg`, `devpost/captures/polish-debrief.jpg` (temporary LEAF scenarios, deleted).
+
+## Render polish: figures and floor markings (4 and 6 Nov 2026)
+
+**Status: gate passed on 6 Nov.** Node: start-engine 12/12, scoring 23/23, figures 77/77, learn-chips 15/15, debrief-layout 12/12. LEAF 20/20, each run alone on the final code. Git tag `before-render-polish` marks the starting commit. The work stopped on 4 Nov because `triage-learn-mode` failed; the cause and fixes are below.
+
+### Done (code written, checked in the preview)
+1. **Exposure:** scene lights changed (ambient 1.25 -> 0.75, key 0.85 -> 0.5; saved in `Scene.scene`) plus baked vertex shading (faces that point down are up to 10% darker, limb ends 4-6% darker at joints, never below about 0.8; darkest baked vertex luminance is tested > 0.4). Limbs and torsos now show soft, clearly visible shading.
+2. **Body shape:** tapered limbs (thigh 16.5 -> 11.4 cm, upper arm 9.6 -> 7.6, forearm 7.4 -> 5.6, calf bulge), joint balls at shoulders, elbows, hips, knees (no gaps or capsule ends), shaped torso (hips, waist, chest, shoulders) and an egg-shaped head, via smooth lofted rings with smooth normals. SEGMENTS kept at 14 (edges did not look faceted). About 4,600 vertices and 6,900 triangles per figure (skin mesh), the outline mesh the same again.
+3. **Clothing:** sleeves with lighter cuffs, trouser cuffs with a bare ankle below, shoes in their own colour family; more saturated light shirt and trouser palettes; shirt, trousers, skin and shoes of one person are kept apart in colour (rare clashes remain: about 15 in 2,000 looks).
+4. **Outline:** 1.1 -> 0.4 cm, tinted per figure (its shirt colour, 15% lighter). The fresnel shader was not tried (thin hull looks right).
+5. **Head:** egg-shaped head, five hair styles by seed (short, long, bun, side fringe, buzz), and a minimal face (two small blue-grey eyes, small mouth) identical on everyone.
+6. **Floor ovals removed.** The figures did not look like they float, so no replacement ring was added. Resting figure = 2 draw calls (was 3).
+7. **Green zone:** the disc is now a smooth light-green ring (96 segments) with a very faint fill; label "GREEN — MINOR" with "Walking wounded" smaller below, lying on the player's side of the zone and turned to face the start position. The walker's stopping point moved to the far side of the ring so they never cover the label (arrival 28 cm from the centre). Inputs on `TriageZoneUI` renamed (`zoneLine1` ...) because the scene's saved old values override script defaults.
+8. **Wall:** the blue slab is now a thin 1.2 cm line where the wall meets the floor (same colour as the play-area outline); the slumped casualty's backrest is thinner and dimmer.
+
+### Tests
+- Node: start-engine 12/12, scoring 23/23, figures 77/77 (7 new checks: palettes, colour separation, hair styles, cuffs/face parts, thin outline, band fit, darkest vertex), learn-chips 15/15, debrief-layout 12/12.
+- LEAF (one at a time, on the final code): 20 of 20 pass. Size bounds (70-220, -3..8, 130) needed no change.
+- `triage-behind-never-walker-f-x`: the first call timed out at the tool, then ran late; the retry ran after it. Both passed, with no overlap.
+- Test changes: `TriageRestartScenario.ts` waits up to 4 s for the Restart button instead of a fixed 1.3 s (it failed twice in a row because the button became pressable about 70 ms later). `TriageLearnModeScenario.ts` is unchanged: the bugs were in the Lens.
+
+### Why `triage-learn-mode` failed: two Lens bugs, both fixed
+**1. Chip row left out of the card layout (`TriageCheckCards.ts`).** The failing check was `startRowY - 0.85 >= fit.statusTop - 0.4`, with the row at y = 0. UI Kit's `FlexLayout` manages only enabled children and finds them once, when the card is first shown. If that first showing was in Drill, the chip row was disabled, so it stayed out of the layout in every later Learn run in that Lens session. The result depended on which mode showed the card first:
+- First card in Drill, unchanged code: 6 items, row y = 0, fails.
+- First card in Learn, same code: 7 items, row y = 8.74, the chip checks pass.
+- It passed on 3 Nov and failed on 4 Nov on the same code because of the preview camera. The scenario presses Learn before it pins the viewer far away, so a camera near a casualty opens a card by proximity in Learn. With the fix removed and the camera at (0, 0, -150), the first card opened in Learn and the scenario passed; from the start position it fails. The 3 Nov camera position is not in the logs, so that part is inferred; this build log's 3 Nov polish entry does record proximity swapping the open card in `triage-pose-variation`, which failed that way minutes before.
+- Fix: `applyMode` calls `refreshChildren()` when the mode changes. Drill now has 6 items and Learn 7, in either order. This also removes an extra gap that Drill kept after a card had first been shown in Learn.
+- Reach: the mode only changes during a Lens session in tests, because Restart keeps the mode, so a player would not have hit this.
+
+**2. Restart could destroy the button while it was still held (`TriageDebrief.ts`).** One run failed with `Object is null` just after Restart. The old debrief's 0.5 s destroy timer was set before the run was rebuilt, and `getTime()` does not move during a frame, so the rebuild used up about 0.3 s of it. Measured: 0.503 s by `getTime()` but 0.188 s of real time, leaving about 0.1 s after LEAF's interactor let go. Shortening the delay to 0.3 s reproduced the same error on demand. Fix: the timer starts on the first frame after the rebuild; measured afterwards, the destroy comes about 0.5 s after the interactor lets go. Possibly reachable with a real hand, since the same code handles a hand's cursor (not tested on glasses).
+
+Also ruled out: the `Can not Set Media Type for Sink Writer` errors in the log are Lens Studio's audio output on this PC and are already in the 3 Nov log.
+
+### Scene
+`Scene.scene` has ambient 0.75, key 0.5 and "Use demo seed" off. Other changes against the last commit, reviewed before committing: the renamed `TriageZoneUI` inputs, `TriageStartUI` start screen lines, and new IDs for the LEAF Plugin Bridge (same content).
+
+### Captures (CapturePanelScreenshotTool only)
+`devpost/captures/render-before-seed21.jpg` (base code, 4 Nov) and `render-after-seed21.jpg` (seed 21, start position, pitched down 28 degrees, nobody tagged), `render-after-close-tagged.jpg` (casualty B on seed 21, tagged Red: band round the shaped torso, face, hair, cuffs, shoes). Both `after` captures were retaken on 6 Nov on the final colours, before the last test pass, using a temporary scenario that was then deleted; removing it was the only code change after them. The close view's camera position was chosen to match the old capture, not copied exactly. The zone and walker were checked in a tuning capture on 4 Nov; the label text in that capture still read the old "MINOR" because of the stale scene value, fixed afterwards by renaming the inputs and **not re-captured**.
+
+### Not proven
+- Additive-display look: feel unproven (preview shows a dark floor). The faint zone fill and the dim backrest may be too faint on glasses.
+- New zone label inside the ring after the rename and the new walker spot: checked by numbers (arrival distance) and one capture, not by a LEAF scenario.

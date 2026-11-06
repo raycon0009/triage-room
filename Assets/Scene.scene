@@ -12,7 +12,7 @@
     - !<own> 858fbd64-1d4c-4128-83fb-596d9aba36b1
     - !<own> 00acae9e-ad5e-4591-a1f2-81c001c55b16
     - !<own> 80c5b3db-0b8e-48a6-880a-6978f10fc3f1
-    - !<own> 8ab89577-b0ff-4759-9dbd-463a027dc387
+    - !<own> 83491cb3-36ba-43aa-a9d1-bacad47f0acd
   layers: !<Layers/267ee9a7-aff2-4f9d-9a49-f71214747d03>
     userLayers:
       - id: 1
@@ -112,7 +112,7 @@
   Enabled: true
   renderLayer: 1310719
   LightType: Directional
-  Intensity: 0.850000
+  Intensity: 0.500000
   ShadowDensity: 0.440000
   ShadowBlurRadius: 4.000000
   ShadowTextureSize: 512
@@ -159,7 +159,7 @@
   Enabled: true
   renderLayer: 1310719
   LightType: Ambient
-  Intensity: 1.250000
+  Intensity: 0.750000
   ShadowDensity: 1.000000
   ShadowBlurRadius: 0.000000
   ShadowTextureSize: 512
@@ -266,16 +266,22 @@
   Enabled: true
   ScriptAsset: !<reference> a3394729-2560-468c-b638-83199202b8ad
   ScriptInputsDefault:
-    label: true
-    textSize: true
-    textColor: true
+    zoneLine1: true
+    zoneLine2: true
+    line1Size: true
+    line2Size: true
+    zoneTextColor: true
+    zoneRingWidthCm: true
   ScriptTypesDefault:
     {}
   ScriptInputs:
     "":
-      label: MINOR
-      textSize: !<float> 380.000000
-      textColor: !<Vec4> {x: 1.000000, y: 1.000000, z: 1.000000, w: 1.000000}
+      zoneLine1: GREEN — MINOR
+      zoneLine2: Walking wounded
+      line1Size: !<float> 270.000000
+      line2Size: !<float> 150.000000
+      zoneTextColor: !<Vec4> {x: 0.850000, y: 1.000000, z: 0.900000, w: 1.000000}
+      zoneRingWidthCm: 2.400000
   ScriptTypes:
     "":
       {}
@@ -857,22 +863,6 @@
     - !<own> a7da4af4-3d84-4acd-a31e-920a56b4c5c8
   Components:
     []
-- !<ScriptComponent/3092f559-4342-4422-b16f-9adf1e16a5c4>
-  PrefabRemaps:
-    []
-  Name: MessagingBridge
-  Enabled: true
-  ScriptAsset: !<reference> 9aa407db-2872-4afc-a162-cf7faf2a0f29
-  ScriptInputsDefault:
-    {}
-  ScriptTypesDefault:
-    {}
-  ScriptInputs:
-    "":
-      {}
-  ScriptTypes:
-    "":
-      {}
 - !<RenderMeshVisual/335c5f8b-2917-49e8-8af5-220696e9bc09>
   PrefabRemaps:
     []
@@ -959,6 +949,22 @@
     []
   Components:
     - !<own> 2572cfd1-199d-48a5-94d5-fe86d53a2250
+- !<ScriptComponent/3744c5ed-e04e-49f2-87e2-d92fb7597fc9>
+  PrefabRemaps:
+    []
+  Name: MessagingBridge
+  Enabled: true
+  ScriptAsset: !<reference> 9aa407db-2872-4afc-a162-cf7faf2a0f29
+  ScriptInputsDefault:
+    {}
+  ScriptTypesDefault:
+    {}
+  ScriptInputs:
+    "":
+      {}
+  ScriptTypes:
+    "":
+      {}
 - !<SceneObject/38562bff-09c5-4232-bff1-7ea62a1e7ec5>
   PrefabRemaps:
     []
@@ -1718,6 +1724,21 @@
     []
   Components:
     - !<own> 62967490-d66e-4479-8829-e5c9da5b5b57
+- !<SceneObject/83491cb3-36ba-43aa-a9d1-bacad47f0acd>
+  PrefabRemaps:
+    []
+  Name: LEAF Plugin Bridge
+  Enabled: true
+  Layers: 1
+  LocalTransform: !<TransformEntity>
+    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
+    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
+    HasSegmentScaleCompensation: false
+  Children:
+    []
+  Components:
+    - !<own> 3744c5ed-e04e-49f2-87e2-d92fb7597fc9
 - !<SceneObject/8363e9a6-cd83-4889-abd4-6521e394f244>
   PrefabRemaps:
     []
@@ -1796,21 +1817,6 @@
     - !<own> 1fc7fa3e-6910-4741-b8a7-1b6660a39a9d
   Components:
     - !<own> 28e05826-1521-46fa-a54c-80f2957ec80c
-- !<SceneObject/8ab89577-b0ff-4759-9dbd-463a027dc387>
-  PrefabRemaps:
-    []
-  Name: LEAF Plugin Bridge
-  Enabled: true
-  Layers: 1
-  LocalTransform: !<TransformEntity>
-    Position: {x: 0.000000, y: 0.000000, z: 0.000000}
-    Rotation: {x: 0.000000, y: 0.000000, z: 0.000000}
-    Scale: {x: 1.000000, y: 1.000000, z: 1.000000}
-    HasSegmentScaleCompensation: false
-  Children:
-    []
-  Components:
-    - !<own> 3092f559-4342-4422-b16f-9adf1e16a5c4
 - !<SceneObject/8b877074-7eee-4be1-b669-714f8d5a1da3>
   PrefabRemaps:
     []
@@ -1912,6 +1918,8 @@
     titleText: true
     drillLabel: true
     learnLabel: true
+    learnLine: true
+    drillLine: true
     footnoteText: true
     buttonWidthCm: true
     buttonHeightCm: true
@@ -1923,6 +1931,8 @@
       titleText: Triage Room
       drillLabel: Drill
       learnLabel: Learn
+      learnLine: Learn — shows the START steps as you go
+      drillLine: "Drill — the real thing, no hints"
       footnoteText: "Training drill, not certification"
       buttonWidthCm: !<float> 14.000000
       buttonHeightCm: 5.500000
