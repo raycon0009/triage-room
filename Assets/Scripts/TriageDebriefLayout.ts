@@ -4,8 +4,8 @@
  *
  * Table (cm, in the panel's plane, panel width 62):
  *   summary: two title-size lines, centred.
- *   view notes (0-2 lines, small size, centred) directly under the summary: when everyone came into view, and whether the
- *   player started before seeing everyone.
+ *   notes (0-4 lines, small size, centred) directly under the summary: when everyone came into view, whether the player
+ *   started before seeing everyone, then (from the second run of a session) the two "Last run / This run" lines.
  *   per casualty, one row of up to three lines:
  *     line 1: "#  name .............. stats"   (a missed casualty: "#  NOT REACHED" in title size, flashing red)
  *     line 2: "   You WORD     Correct WORD"      (a missed casualty: "   name     Correct WORD")
@@ -32,6 +32,11 @@ export interface Sizes {
 const LINE = 1.2 // line pitch = em * LINE
 const PAD_Y = 2
 const ROW_GAP = 0.7
+/** With 3 or 4 note lines (the run comparison is showing) the spacing is tightened so the panel stays inside the view; text sizes stay. */
+export const TIGHT_FROM_NOTES = 3
+const TIGHT_NOTE_LINE = 1.0
+const TIGHT_ROW_GAP = 0.1
+const TIGHT_PAD_Y = 1.0
 /** about this many characters of explanation fit on one line at the small size across the table's text columns */
 export const EXPLANATION_CHARS_PER_LINE = 44
 
@@ -61,13 +66,16 @@ export interface RowLayout {
 export interface PanelLayout {
   height: number
   summaryY: number[]
-  /** centre of each view-note line (small size) */
+  /** centre of each note line (small size) */
   noteY: number[]
   rows: RowLayout[]
 }
 
 export function layoutPanel(entries: RowIn[], sizes: Sizes, notes: number = 0): PanelLayout {
-  let cursor = PAD_Y
+  const tight = notes >= TIGHT_FROM_NOTES
+  const padY = tight ? TIGHT_PAD_Y : PAD_Y
+  const rowGap = tight ? TIGHT_ROW_GAP : ROW_GAP
+  let cursor = padY
   const summaryY: number[] = []
   const pSum = pitch(sizes.title)
   for (let i = 0; i < 2; i++) {
@@ -75,12 +83,12 @@ export function layoutPanel(entries: RowIn[], sizes: Sizes, notes: number = 0): 
     cursor += pSum
   }
   const noteY: number[] = []
-  const pNote = pitch(sizes.small)
+  const pNote = tight ? (sizes.small / 43.9) * TIGHT_NOTE_LINE : pitch(sizes.small)
   for (let i = 0; i < notes; i++) {
     noteY.push(-(cursor + pNote / 2))
     cursor += pNote
   }
-  cursor += ROW_GAP
+  cursor += rowGap
   const rows: RowLayout[] = []
   for (const e of entries) {
     const missed = e.status === "missed"
@@ -100,10 +108,10 @@ export function layoutPanel(entries: RowIn[], sizes: Sizes, notes: number = 0): 
       y3 = -(cursor + p3 / 2)
       cursor += p3
     }
-    cursor += ROW_GAP
+    cursor += rowGap
     rows.push({ id: e.id, row: e.row, missed: missed, line1Size: s1, y1: y1, y2: y2, y3: y3, lines3: lines3, p3: p3 })
   }
-  cursor += PAD_Y - ROW_GAP
+  cursor += padY - rowGap
   return { height: cursor, summaryY: summaryY, noteY: noteY, rows: rows }
 }
 

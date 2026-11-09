@@ -571,3 +571,54 @@ The sweep stalled on 6-7 Nov because of the Lens Studio preview, not a test fail
 | triage-debrief-first-seen | PASS |
 | triage-tag-word-in-view | PASS |
 | triage-bigger-pool | PASS |
+
+## Debrief compares this run with the last one
+
+Tag `before-run-compare` marks the commit before this change (03f239e).
+
+### What changed
+- New pure module `TriageRunCompare.ts` (no Lens API): a run record (mode, correct tags, total, `allSeenAt`, never-in-view count) and the two lines "Last run (Learn): 3 of 4 · all in view 0:50" / "This run (Drill): 4 of 4 · all in view 0:22". Time uses the first-seen tracker's `allSeenAt` and `clock()` (same rounding); someone never in view gives "1 never in view" / "2 never in view". Every line is at most 44 characters (the longest possible is 43).
+- `TriageDebrief.ts` keeps the last run in a private field (survives Restart, memory only, nothing saved), builds the lines when a debrief opens and adds them under the existing "in view" lines in the same small size, faded in with the same reveal. New hook `getCompareLines()`; `getViewLines()` is unchanged. The lines are in the `TRIAGE_DEBRIEF` log print. The first run of a session shows none; a run only counts as "last run" once it reached a debrief.
+- `TriageDebriefLayout.ts`: handles up to 4 note lines. From 3 notes the spacing is tightened (note line pitch 1.0 instead of 1.2, row gap 0.1, padding 1.0); with 2 or fewer notes nothing moves. Text sizes unchanged. Without it, 4 notes would have reached 17.8 degrees (limit 17).
+- Nothing else changed: no START rule, layout, figure or other UI.
+
+### Tests
+- New Node `run-compare.test.mjs` (15 checks): no lines on the first run, the brief's example, mode labels both ways, correct count (0 of 4 too), "never in view" wording, time rounding (22.4, 22.5, 59.6, 0), every line within 44 characters, neutral wording.
+- `debrief-layout.test.mjs` (29 checks, was 20): 3 notes (nobody tagged) and 4 notes (someone tagged) fit the view with 0.5 degrees to spare (worst 15.95 and 16.32), three casts with the new cases at 4 notes, note lines stacked in order, 2 notes unchanged.
+- All 8 Node test files pass.
+- New LEAF `triage-run-compare` (registered in LeafIndex): run 1 Drill, one tag, Scene clear: no comparison lines; Restart, switch to Learn, everyone tagged (walker by call-out): lines read "Last run (Drill): 1 of 4 · 4 never in view" and "This run (Learn): 4 of 4 · all in view <tracker time>", the panel fits the view with readable text and every line inside it.
+- Capture: `devpost/captures/run-compare-debrief.jpg` (the second debrief, four note lines).
+
+### LEAF results (all 26, one at a time, each after its own preview reset and a list_leaf_scenarios answer)
+
+| Scenario | Result |
+|---|---|
+| triage-start-four-casualties | PASS |
+| triage-one-behind | PASS |
+| triage-scenario-line | PASS |
+| triage-seed-repeatable | PASS |
+| triage-real-size-on-floor | PASS |
+| triage-behind-never-walker-f-x | PASS |
+| triage-card-opens-proximity-and-open | PASS |
+| triage-card-scripted-results-and-tag-gating | PASS |
+| triage-tag-closes-card-adds-band | PASS |
+| triage-start-rules-in-lens | PASS |
+| triage-callout-walker-only | PASS |
+| triage-timer-chime-and-time-up | PASS |
+| triage-groan-and-arrow-behind | PASS |
+| triage-debrief-all-tagged | PASS |
+| triage-debrief-time-up-not-reached | PASS |
+| triage-restart-and-seeds | PASS |
+| triage-start-screen | PASS |
+| triage-pose-variation | PASS |
+| triage-learn-mode | PASS |
+| triage-debrief-reveal | PASS |
+| triage-scene-clear | PASS |
+| triage-hints-by-mode | PASS |
+| triage-debrief-first-seen | PASS |
+| triage-tag-word-in-view | PASS |
+| triage-bigger-pool | PASS |
+| triage-run-compare | PASS |
+
+### Not proven
+- Real glasses. The comparison is within one Lens session only, by design.

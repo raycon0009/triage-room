@@ -4,7 +4,7 @@ import { layoutPanel as layout, revealSchedule, PANEL_W } from "../../Assets/Scr
 import { sizesAt } from "../../Assets/Scripts/TriageUiSizes.ts"
 
 const DEBRIEF_SIZES = sizesAt(120, 1.4) // same as TriageUi.DEBRIEF_SIZES
-const layoutPanel = (e) => layout(e, DEBRIEF_SIZES)
+const layoutPanel = (e, notes = 0) => layout(e, DEBRIEF_SIZES, notes)
 import { buildEntry, orderRows } from "../../Assets/Scripts/TriageScoring.ts"
 import { CASUALTY_TABLE } from "../../Assets/Scripts/TriageData.ts"
 
@@ -46,6 +46,30 @@ for (const cast of [["W3", "G", "J", "X"], ["H", "G", "J", "W3"], ["G", "H", "J"
 }
 check("all 81 status combinations fit the view with 1 degree to spare", worst < VIEW_HALF_V_DEG - 1, { worstDeg: Math.round(worst * 100) / 100, worstCombo })
 
+// 3 and 4 note lines (the "in view" lines plus the two "Last run / This run" lines). Realistic counts: nobody tagged shows
+// 1 "in view" line + 2 comparison lines = 3 notes; otherwise up to 2 + 2 = 4. Every status combination still fits the view.
+for (const [label, count] of [["nobody tagged", 3], ["someone tagged", 4]]) {
+  let w = 0
+  let combo = ""
+  for (const a of S) for (const b of S) for (const c of S) for (const d of S) {
+    const allMissed = [a, b, c, d].every((x) => x === "missed")
+    if ((label === "nobody tagged") !== allMissed) continue
+    const ang = angle(layoutPanel(entries([a, b, c, d]), count).height)
+    if (ang > w) { w = ang; combo = [a, b, c, d].join(",") }
+  }
+  check(label + " (" + count + " note lines): fits the view with 0.5 degrees to spare", w < VIEW_HALF_V_DEG - 0.5, { worstDeg: Math.round(w * 100) / 100, combo })
+}
+for (const cast of [["W3", "G", "J", "X"], ["H", "G", "J", "W3"], ["G", "H", "J", "X"]]) {
+  let w = 0
+  for (const a of S) for (const b of S) for (const c of S) for (const d of S) w = Math.max(w, angle(layoutPanel(entries([a, b, c, d], cast), [a, b, c, d].every((x) => x === "missed") ? 3 : 4).height))
+  check("4 note lines, cast " + cast.join(",") + ": every combination within the view limit (0.5 degrees to spare)", w < VIEW_HALF_V_DEG - 0.5, { worstDeg: Math.round(w * 100) / 100 })
+}
+for (const notes of [3, 4]) {
+  const l = layoutPanel(entries(["missed", "correct", "wrong", "correct"]), notes)
+  const ok = l.noteY.length === notes && l.noteY.every((y, i) => (i === 0 ? y < l.summaryY[1] : y < l.noteY[i - 1])) && l.rows[0].y1 < l.noteY[notes - 1]
+  check(notes + " note lines: stacked in order under the summary, above the first row, and no overlap with it", ok, { noteY: l.noteY })
+}
+check("2 note lines: layout unchanged (spacing is only tightened from 3 notes)", layoutPanel(entries(["correct", "correct", "correct", "correct"]), 2).noteY[1] === layoutPanel(entries(["correct", "correct", "correct", "correct"]), 2).noteY[1] && layoutPanel(entries(["correct", "correct", "correct", "correct"]), 2).height > layoutPanel(entries(["correct", "correct", "correct", "correct"]), 1).height)
 const none = layoutPanel(entries(["missed", "missed", "missed", "missed"]))
 check("nobody reached: fits (was 0.15 degrees too tall)", angle(none.height) < VIEW_HALF_V_DEG - 1, { heightCm: Math.round(none.height * 10) / 10, deg: Math.round(angle(none.height) * 100) / 100 })
 

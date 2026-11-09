@@ -33,6 +33,7 @@ import { TriageSceneClear } from "./TriageSceneClear"
 import { TriageFigureBuilder, TAG_BAND_COLOUR } from "./TriageFigureBuilder"
 import { CASUALTY_TABLE } from "./TriageData"
 import { ROOM } from "./TriageLayout"
+import { RunRecord, compareLines, makeRecord } from "./TriageRunCompare"
 import { DebriefEntry, DebriefSummary, buildEntry, orderRows, summarize } from "./TriageScoring"
 import { RoundedRectangle } from "SpectaclesUIKit.lspkg/Scripts/Visuals/RoundedRectangle/RoundedRectangle"
 import { DEBRIEF_SIZES, TEXT_SMALL, addPressPop, clamp01, easeOutCubic, finishMotion, lerp, showPanel } from "./TriageUi"
@@ -143,6 +144,11 @@ export class TriageDebrief extends BaseScriptComponent {
   /** the "in view" lines under the summary (when everyone came into view; started before seeing everyone) */
   private viewTexts: Text[] = []
   private viewLines: string[] = []
+  /** the "Last run / This run" lines (none on the first run of a session) */
+  private compareTexts: Text[] = []
+  private compareLines: string[] = []
+  /** the last run that reached a debrief: memory only, kept across Restart, gone when the Lens closes */
+  private lastRun: RunRecord | null = null
   private panelTexts: { id: string; name: string; text: Text; size: number; obj: SceneObject }[] = []
   private billboards: SceneObject[] = []
   private entries: DebriefEntry[] = []
@@ -262,6 +268,10 @@ export class TriageDebrief extends BaseScriptComponent {
   /** The lines under the summary about when everyone came into view (head direction, not eye tracking). */
   getViewLines(): string[] {
     return this.viewTexts.map((t) => t.text)
+  }
+  /** The two lines comparing this run with the one before (empty on the first run of a session). */
+  getCompareLines(): string[] {
+    return this.compareTexts.map((t) => t.text)
   }
   /** The text of every line of a casualty's row: number, name, stats, youLabel, youWord, correctLabel, correctWord, explanation, notReached. */
   getRowTexts(id: string): { [name: string]: string } {
@@ -480,6 +490,7 @@ export class TriageDebrief extends BaseScriptComponent {
     if (this.panelPlate && !isNull(this.panelPlate)) this.panelPlate.opacity = pk
     for (const t of this.summaryTexts) this.setAlpha(t, WHITE, pk)
     for (const t of this.viewTexts) this.setAlpha(t, WHITE, pk)
+    for (const t of this.compareTexts) this.setAlpha(t, WHITE, pk)
     for (const st of this.plan) {
       if (st.id === null) continue
       const r = this.rows[st.id]
@@ -543,6 +554,8 @@ export class TriageDebrief extends BaseScriptComponent {
     this.summaryTexts = []
     this.viewTexts = []
     this.viewLines = []
+    this.compareTexts = []
+    this.compareLines = []
     this.panelTexts = []
     this.billboards = []
     this.entries = []
@@ -590,6 +603,10 @@ export class TriageDebrief extends BaseScriptComponent {
     const used = Math.min(this.clock.getElapsed(), this.clock.getDuration())
     this.summary = summarize(this.entries, used, this.main.getMode() === "learn" ? "Learn" : "")
     this.viewLines = this.main.getFirstSeen().lines()
+    const fs = this.main.getFirstSeen()
+    const thisRun = makeRecord(this.main.getMode() === "learn" ? "Learn" : "Drill", this.summary.correct, this.summary.total, fs.allSeenAt(), fs.neverSeenCount())
+    this.compareLines = compareLines(this.lastRun, thisRun)
+    this.lastRun = thisRun
 
     this.root = global.scene.createSceneObject("DebriefRoot")
     this.root.setParent(this.sceneObject)
@@ -601,7 +618,7 @@ export class TriageDebrief extends BaseScriptComponent {
     this.panelAt = reason === "time" ? this.timesUpSeconds + PAUSE_AFTER_TIMES_UP : reason === "scene-clear" ? SCENE_CLEAR_PAUSE : 0.1
     if (this.panel) this.panel.enabled = false
     if (this.restartObj) this.restartObj.enabled = false
-    print("TRIAGE_DEBRIEF " + reason + " " + this.summary.text + " | " + this.viewLines.join(" | "))
+    print("TRIAGE_DEBRIEF " + reason + " " + this.summary.text + " | " + this.viewLines.concat(this.compareLines).join(" | "))
   }
 
   // ------------------------------------------------------------------ map
@@ -708,7 +725,7 @@ export class TriageDebrief extends BaseScriptComponent {
     this.panelPlate = root.getComponent(RoundedRectangle.getTypeName()) as RoundedRectangle
 
     // measurements come from TriageDebriefLayout (pure, tested in Node); this only draws them
-    const lay = layoutPanel(this.entries, DEBRIEF_SIZES, this.viewLines.length)
+    const lay = layoutPanel(this.entries, DEBRIEF_SIZES, this.viewLines.length + this.compareLines.length)
     const sum = this.summary!
     for (let i = 0; i < 2; i++) {
       const t = this.addText(content, "Summary" + (i + 1), sum.lines[i], DEBRIEF_SIZES.title, WHITE, 0, lay.summaryY[i], "center", PANEL_W - 2 * MARGIN)
@@ -721,6 +738,13 @@ export class TriageDebrief extends BaseScriptComponent {
       const t = this.addText(content, "View" + (i + 1), line, DEBRIEF_SIZES.small, WHITE, 0, lay.noteY[i], "center", PANEL_W - 2 * MARGIN)
       this.viewTexts.push(t)
       this.panelTexts.push({ id: "view", name: "line" + (i + 1), text: t, size: DEBRIEF_SIZES.small, obj: t.sceneObject })
+    })
+
+    // after the "in view" lines, same small size: this run against the one before (only from the second run on)
+    this.compareLines.forEach((line, i) => {
+      const t = this.addText(content, "Compare" + (i + 1), line, DEBRIEF_SIZES.small, WHITE, 0, lay.noteY[this.viewLines.length + i], "center", PANEL_W - 2 * MARGIN)
+      this.compareTexts.push(t)
+      this.panelTexts.push({ id: "compare", name: "line" + (i + 1), text: t, size: DEBRIEF_SIZES.small, obj: t.sceneObject })
     })
 
     const wBox = PANEL_W - 2 * MARGIN

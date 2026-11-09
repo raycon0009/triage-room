@@ -25,6 +25,7 @@ import {TriageHintsByModeScenario} from "./TriageHintsByModeScenario"
 import {TriageFirstSeenScenario} from "./TriageFirstSeenScenario"
 import {TriageTagWordScenario} from "./TriageTagWordScenario"
 import {TriageBiggerPoolScenario} from "./TriageBiggerPoolScenario"
+import {TriageRunCompareScenario} from "./TriageRunCompareScenario"
 
 @component
 export class LeafIndex extends BaseScriptComponent {
@@ -55,5 +56,6 @@ export class LeafIndex extends BaseScriptComponent {
     {id: "triage-debrief-first-seen", typename: TriageFirstSeenScenario.getTypeName()},
     {id: "triage-tag-word-in-view", typename: TriageTagWordScenario.getTypeName()},
     {id: "triage-bigger-pool", typename: TriageBiggerPoolScenario.getTypeName()},
+    {id: "triage-run-compare", typename: TriageRunCompareScenario.getTypeName()},
   ]
 }
