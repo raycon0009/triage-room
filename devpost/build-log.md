@@ -789,3 +789,67 @@ The runs started slowly at first: Lens Studio had been minimised and a few tool 
 ### Not proven
 - Only seen in the Lens Studio preview. How the buttons feel to pinch at waist height, and whether the tip is readable on a device, is unproven.
 - The tip says "in view", which is head direction, not eye tracking.
+
+## Handover question at the end of a run, and a readable next-run tip
+
+Tag `before-handover` marks the commit before this change (9c3e189).
+
+### What changed
+- New pure module `TriageHandoverText.ts` (no Lens API): the two question lines, the choices 0-4, `redCount` (correct tag Red, anyone not reached included) and `handoverLine(said, red)` = "Handover: you said 2 · 3 Red in the room" (the same line on a match; neutral).
+- New `TriageHandover.ts` (a plain class, built by `TriageDebrief`): the question panel, same style and place as the Scene clear question (60 cm in front, 1.5 cm below the middle of the view, 26.8 x 15.3 cm), five buttons `HandoverButton_0..4`. Placed once, where the viewer is looking when it appears.
+- `TriageDebrief.ts`: on any end reason the debrief now waits for the question (input `askHandover`, default on). At time's up the Time's up panel is shown alone for `timesUpSeconds`, steps aside, then the question appears. The debrief opens only after an answer (it then comes in as after Scene clear). With `askHandover` off the debrief opens directly, as before. Scoring, summary, comparison and tip are untouched.
+- The tip now sits on a backing plate (`TipPlate`, 46 cm wide, same board style, behind the text) with the handover result line as a second line above it. Text sizes and the tip wording are unchanged. With the question off the plate backs the tip alone.
+- LEAF helper `getTriageMain()` turns `askHandover` off, and every scenario starts with it, so all existing scenarios keep their flow. Only `triage-handover` (and the first run of `triage-mode-choice`) turn it on.
+- `Scene.scene` was not touched (the input's default is on); "Use demo seed" is still off.
+
+### Tests
+- New Node `handover.test.mjs` (35 checks): a match, a mismatch, nobody Red, a missed Red casualty counted (and a wrongly-tagged Red not), all 25 said/Red pairs neutral and short, the question has no digit, five choices.
+- New LEAF `triage-handover`: for scene-clear, all-tagged and time's up, the question appears before the debrief (the debrief stays shut while it waits), has 5 buttons labelled 0-4, sits inside the view limits (worst 12.59 degrees across, 8.67 up), contains no number except the labels, and at time's up the Time's up panel has stepped aside first. Answering opens the debrief. In a Drill run where Red casualty A is never reached, the plate's result line is "Handover: you said 1 · 1 Red in the room" (the missed person counted), the line is above the tip, both are inside the plate and in front of it, and the plate is in view (worst 14.50 across). With `askHandover` off the debrief opens directly, no result line, plate still there.
+- `triage-mode-choice` now runs its first run with the question on and answers it, so the plate carries two lines; every old check is kept, and it adds: the plate exists, both lines are inside it and in front of it, the plate sits above the buttons, and the plate and the handover line are included in the view-limit and overlap checks. Worst horizontal angle is still 15.76 degrees of 16 (the buttons set it, not the plate).
+- `triage-restart-and-seeds` needed one constant: the debrief object now has a permanent third child (`HandoverQuestion`, like the two Scene clear panels), so the "no debrief objects left" check names it as permanent and expects 3 children instead of 2. It failed once on exactly this, then passed; no assertion was weakened (anything else left over still fails it).
+- All 12 Node test files pass, 346 checks (debrief-layout 40, figures 82, first-seen 18, groan-pick 9, handover 35, learn-chips 15, look-ring 19, next-tip 33, pool 45, run-compare 15, scoring 23, start-engine 12 brief cases).
+
+### LEAF results (all 30; each after its own preview reset and a list_leaf_scenarios answer; result from the whole `PASSED: <id>` line after that scenario's own `RUNS:` line)
+
+| Scenario | Result |
+|---|---|
+| triage-start-four-casualties | PASS |
+| triage-one-behind | PASS (the preview was minimised and froze for about 15 minutes before it started; it passed on the line once Lens Studio was restored) |
+| triage-scenario-line | PASS |
+| triage-seed-repeatable | PASS |
+| triage-real-size-on-floor | PASS |
+| triage-behind-never-walker-f-x | PASS |
+| triage-card-opens-proximity-and-open | PASS |
+| triage-card-scripted-results-and-tag-gating | PASS |
+| triage-tag-closes-card-adds-band | PASS |
+| triage-start-rules-in-lens | PASS |
+| triage-callout-walker-only | PASS |
+| triage-timer-chime-and-time-up | PASS |
+| triage-groan-and-arrow-behind | PASS |
+| triage-debrief-all-tagged | PASS |
+| triage-debrief-time-up-not-reached | PASS |
+| triage-restart-and-seeds | PASS (first run failed on the child-count constant above; passed after the fix) |
+| triage-start-screen | PASS |
+| triage-pose-variation | PASS |
+| triage-learn-mode | PASS |
+| triage-debrief-reveal | PASS |
+| triage-scene-clear | PASS |
+| triage-hints-by-mode | PASS |
+| triage-debrief-first-seen | PASS |
+| triage-tag-word-in-view | PASS |
+| triage-bigger-pool | PASS |
+| triage-run-compare | PASS |
+| triage-look-ring | PASS |
+| triage-groan-variants | PASS |
+| triage-mode-choice | PASS (edited, see above) |
+| triage-handover | PASS (new) |
+
+`triage-start-four-casualties`, `triage-one-behind`, `triage-mode-choice` and `triage-handover` ran before the one test-only constant change in `triage-restart-and-seeds`; no Lens code changed after them. `list_leaf_scenarios` is cached and lagged the new registration; the runs by id worked.
+
+### Captures (CapturePanelScreenshotTool only)
+- `devpost/captures/handover-question.jpg`: the question as it appears (two lines, buttons 0-4).
+- `devpost/captures/handover-tip-plate.jpg`: after a Drill run that missed a Red casualty: the plate with "Handover: you said 2 · 1 Red in the room" over the tip, above Again: Learn / Again: Drill. Both taken with a temporary scenario that held the question open (deleted before the commit; `LeafIndex` restored). In the first plate capture the tip line did not draw from one camera angle; the second capture, from the start view, shows both lines.
+
+### Not proven
+- Only seen in the Lens Studio preview; whether the five narrow buttons (4.4 cm wide, 6.5 cm tall) are comfortable to pinch on real glasses is unproven.
+- The question is placed once where the player looks when it appears; it does not follow the head afterwards.

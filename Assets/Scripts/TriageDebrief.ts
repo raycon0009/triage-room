@@ -39,6 +39,8 @@ import { CASUALTY_TABLE } from "./TriageData"
 import { ROOM } from "./TriageLayout"
 import { RunRecord, compareLines, makeRecord } from "./TriageRunCompare"
 import { tipFor } from "./TriageNextTip"
+import { TriageHandover } from "./TriageHandover"
+import { handoverLine, redCount } from "./TriageHandoverText"
 import { RING_LABEL, RING_SEGMENTS, SEGMENT_DEG } from "./TriageLookRing"
 import { DebriefEntry, DebriefSummary, buildEntry, orderRows, summarize } from "./TriageScoring"
 import { RoundedRectangle } from "SpectaclesUIKit.lspkg/Scripts/Visuals/RoundedRectangle/RoundedRectangle"
@@ -84,6 +86,11 @@ const AGAIN_FORWARD_CM = 40
 /** about how far the pair is from the eyes (cm): the tip text is sized for this, to the same angular size as the panel's small text */
 const AGAIN_DISTANCE_CM = 94
 const AGAIN_TIP_GAP = 1.2
+/** the tip's backing plate: as wide as the longest tip (measured 42.8 cm) plus a margin, and a little taller than its lines */
+const TIP_PLATE_W = 46
+const TIP_PLATE_PAD = 0.8
+/** space between the handover line and the tip (cm) */
+const TIP_LINE_GAP = 0.2
 
 interface RowParts {
   id: string
@@ -155,6 +162,10 @@ export class TriageDebrief extends BaseScriptComponent {
   @widget(new SliderWidget(0, 4, 0.1))
   @hint("Flash speed of NOT REACHED (flashes per second). 0 holds it at its bright phase (for a screenshot)")
   flashHz: number = 1.8
+
+  @input
+  @hint("When a run ends, the ambulance crew asks how many need to go first (Red) before the debrief opens. Off = the debrief opens directly (the LEAF helpers turn it off for scenarios that do not test it)")
+  askHandover: boolean = true
   @ui.group_end
 
   private builder: TriageFigureBuilder | null = null
@@ -202,6 +213,16 @@ export class TriageDebrief extends BaseScriptComponent {
   private timesUpHidden = false
   private viewerOverride: vec3 | null = null
   private sceneClear: TriageSceneClear | null = null
+  private handover: TriageHandover | null = null
+  /** the run has ended and the handover question is waiting to appear / on show: the end reason, else null */
+  private handoverReason: EndReason | null = null
+  private handoverT = 0
+  private handoverShown = false
+  private handoverTimesUpHidden = false
+  private handoverLineText = ""
+  private tipPlate: SceneObject | null = null
+  private tipPlateSize = { w: 0, h: 0 }
+  private handoverLineObj: SceneObject | null = null
   /**
    * Old debriefs waiting to be destroyed. clear() hides the old debrief at once but destroys it a moment later: the
    * Restart button inside it is still held by the interactor that just pinched it (a hand's cursor, or LEAF's scripted
@@ -238,7 +259,12 @@ export class TriageDebrief extends BaseScriptComponent {
       callOut: this.callOut,
       cameraObject: this.cameraObject,
     })
-    this.clock.onRunEnded.add((r) => this.openDebrief(r))
+    this.handover = new TriageHandover({
+      parent: this.sceneObject,
+      cameraObject: this.cameraObject,
+      onAnswer: (n) => this.onHandoverAnswer(n),
+    })
+    this.clock.onRunEnded.add((r) => this.onRunEnded(r))
     this.main.onRegenerated.add(() => this.clear())
     this.main.onRunStarted.add(() => {
       this.graceLeft = -1
@@ -249,6 +275,35 @@ export class TriageDebrief extends BaseScriptComponent {
 
   setViewerOverride(p: vec3 | null): void {
     this.viewerOverride = p
+    if (this.handover) this.handover.setViewerOverride(p, this.handoverLook)
+  }
+  private handoverLook: vec3 | null = null
+  /** Test stand-in: where the viewer looks when the handover question appears (with setViewerOverride's position). */
+  setHandoverLook(look: vec3 | null): void {
+    this.handoverLook = look
+    if (this.handover) this.handover.setViewerOverride(this.viewerOverride, look)
+  }
+  /** The handover question (null before the Lens has started). */
+  getHandover(): TriageHandover | null {
+    return this.handover
+  }
+  /** True from the end of the run until the question is answered (the debrief opens after it). */
+  isHandoverPending(): boolean {
+    return this.handoverReason !== null
+  }
+  /** The result line on the tip plate ("Handover: you said 2 · 3 Red in the room"; "" if the question was not asked). */
+  getHandoverLine(): string {
+    return this.handoverLineText
+  }
+  getHandoverLineObject(): SceneObject | null {
+    return this.handoverLineObj && !isNull(this.handoverLineObj) ? this.handoverLineObj : null
+  }
+  /** The backing plate behind the tip (and the handover line), and its size in cm. */
+  getTipPlateObject(): SceneObject | null {
+    return this.tipPlate && !isNull(this.tipPlate) ? this.tipPlate : null
+  }
+  getTipPlateSize(): { w: number; h: number } {
+    return { w: this.tipPlateSize.w, h: this.tipPlateSize.h }
   }
   /** The "Scene clear" button and its question (null before the Lens has started). */
   getSceneClear(): TriageSceneClear | null {
@@ -445,6 +500,43 @@ export class TriageDebrief extends BaseScriptComponent {
     return this.retired.filter((r) => !isNull(r.obj)).length
   }
 
+  // ------------------------------------------------------------------ handover (between the end of the run and the debrief)
+
+  /** The run ended for any reason: ask the handover question first (unless switched off), then open the debrief. */
+  private onRunEnded(reason: EndReason): void {
+    if (!this.askHandover || !this.handover) {
+      this.openDebrief(reason)
+      return
+    }
+    this.handoverReason = reason
+    this.handoverShown = false
+    this.handoverTimesUpHidden = false
+    this.handoverT = 0
+  }
+
+  private watchHandover(dt: number): void {
+    if (this.handoverReason === null || this.handoverShown) return
+    this.handoverT += dt
+    // at time's up the Time's up panel is shown alone for a moment, then it steps aside, then the question; otherwise a short pause
+    const timesUp = this.handoverReason === "time"
+    if (timesUp && !this.handoverTimesUpHidden && this.handoverT >= this.timesUpSeconds) {
+      this.handoverTimesUpHidden = true
+      this.clock.hideTimesUp()
+    }
+    if (this.handoverT >= (timesUp ? this.timesUpSeconds + PAUSE_AFTER_TIMES_UP : SCENE_CLEAR_PAUSE)) {
+      this.handoverShown = true
+      this.handover!.show()
+    }
+  }
+
+  private onHandoverAnswer(n: number): void {
+    const reason = this.handoverReason
+    if (reason === null) return
+    this.handoverReason = null
+    this.handoverShown = false
+    this.openDebrief(reason, n)
+  }
+
   // ------------------------------------------------------------------ end trigger (everyone tagged)
 
   private allTagged(): boolean {
@@ -495,6 +587,7 @@ export class TriageDebrief extends BaseScriptComponent {
     const dt = getDeltaTime()
     if (!this.open) {
       this.watchEnd(dt)
+      this.watchHandover(dt)
       return
     }
     this.sinceOpen += dt
@@ -639,6 +732,13 @@ export class TriageDebrief extends BaseScriptComponent {
     this.sinceOpen = 0
     this.graceLeft = -1
     this.pendingAgain = null
+    this.handoverReason = null
+    this.handoverShown = false
+    this.handoverLineText = ""
+    this.tipPlate = null
+    this.tipPlateSize = { w: 0, h: 0 }
+    this.handoverLineObj = null
+    if (this.handover) this.handover.reset()
     this.panelSize = { w: PANEL_W, h: 0 }
     this.plan = []
     this.panelAt = 0
@@ -650,7 +750,8 @@ export class TriageDebrief extends BaseScriptComponent {
     this.timesUpHidden = false
   }
 
-  private openDebrief(reason: EndReason): void {
+  /** `said`: the number answered to the handover question (-1 = it was not asked). */
+  private openDebrief(reason: EndReason, said: number = -1): void {
     if (this.open) return
     this.clear()
     this.open = true
@@ -681,6 +782,7 @@ export class TriageDebrief extends BaseScriptComponent {
     const thisRun = makeRecord(this.main.getMode() === "learn" ? "Learn" : "Drill", this.summary.correct, this.summary.total, fs.allSeenAt(), fs.neverSeenCount())
     this.compareLines = compareLines(this.lastRun, thisRun)
     this.lastRun = thisRun
+    this.handoverLineText = said >= 0 ? handoverLine(said, redCount(this.entries.map((e) => e.correctTag))) : ""
     this.nextTip = tipFor({
       mode: thisRun.mode,
       casualties: this.entries.map((e) => ({ id: e.id, walks: CASUALTY_TABLE[e.id].walks, myTag: e.myTag, correctTag: e.correctTag, extraChecks: e.extraChecks })),
@@ -694,7 +796,9 @@ export class TriageDebrief extends BaseScriptComponent {
     this.buildPanel()
     this.buildRestart()
     // at time's up the Time's up panel is shown alone for a moment, then a short pause, then the panel appears
-    this.panelAt = reason === "time" ? this.timesUpSeconds + PAUSE_AFTER_TIMES_UP : reason === "scene-clear" ? SCENE_CLEAR_PAUSE : 0.1
+    // after the handover question the Time's up panel is long gone: the debrief comes in as it does after Scene clear
+    this.panelAt = said >= 0 ? SCENE_CLEAR_PAUSE : reason === "time" ? this.timesUpSeconds + PAUSE_AFTER_TIMES_UP : reason === "scene-clear" ? SCENE_CLEAR_PAUSE : 0.1
+    if (said >= 0) this.timesUpHidden = true
     if (this.panel) this.panel.enabled = false
     if (this.restartObj) this.restartObj.enabled = false
     print("TRIAGE_DEBRIEF " + reason + " " + this.summary.text + " | " + this.viewLines.concat(this.compareLines).join(" | "))
@@ -960,6 +1064,26 @@ export class TriageDebrief extends BaseScriptComponent {
     const tip = this.addText(root, "NextTip", this.nextTip, tipSize, TEXT_SMALL, 0, tipY, "center", 56)
     this.tipObj = tip.sceneObject
     this.tipText = tip
+    // the handover result as a second line above the tip, same size and colour
+    const linePitch = pitch(tipSize)
+    let topY = tipY + linePitch / 2
+    if (this.handoverLineText !== "") {
+      const lineY = tipY + linePitch + TIP_LINE_GAP
+      const hl = this.addText(root, "HandoverResult", this.handoverLineText, tipSize, TEXT_SMALL, 0, lineY, "center", 56)
+      this.handoverLineObj = hl.sceneObject
+      topY = lineY + linePitch / 2
+    }
+    // a subtle backing plate behind the lines (the same board style as the others), so a casualty standing behind does not spoil them
+    const bottomY = tipY - linePitch / 2 - TIP_PLATE_PAD
+    const plateH = topY + TIP_PLATE_PAD - bottomY
+    const plate = global.scene.createSceneObject("TipPlate")
+    plate.setParent(root)
+    plate.getTransform().setLocalPosition(new vec3(0, (topY + TIP_PLATE_PAD + bottomY) / 2, -GUTTER_Z))
+    plate.createComponent("Component.Canvas")
+    const plateBack = plate.createComponent(BackPlate.getTypeName()) as BackPlate
+    plateBack.size = new vec2(TIP_PLATE_W, plateH)
+    this.tipPlate = plate
+    this.tipPlateSize = { w: TIP_PLATE_W, h: plateH }
     this.restartObj = root
   }
 

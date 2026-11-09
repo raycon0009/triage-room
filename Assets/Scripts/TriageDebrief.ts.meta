@@ -28,6 +28,7 @@
   ExportUid: 00000000-0000-0000-0000-000000000000
   PackagePolicy: CanBeUnpacked
   ScriptInputsHidden:
+    askHandover: false
     callOut: false
     cameraObject: false
     cards: false
@@ -59,6 +60,7 @@
       endGraceSeconds: 1.200000
       timesUpSeconds: !<float> 3.000000
       flashHz: 1.800000
+      askHandover: true
   ScriptTypes:
     -
       {}
@@ -82,4 +84,5 @@
     - '// @input float endGraceSeconds = 1.2 {"hint":"Pause after the last tag before the debrief opens (s)", "widget":"slider", "min":0, "max":3, "step":0.1}'
     - "// @input float timesUpSeconds = 2 {\"hint\":\"At time's up the Time's up panel is shown alone for this long, then the debrief panel appears (s)\", \"widget\":\"slider\", \"min\":0.5, \"max\":6, \"step\":0.5}"
     - '// @input float flashHz = 1.8 {"hint":"Flash speed of NOT REACHED (flashes per second). 0 holds it at its bright phase (for a screenshot)", "widget":"slider", "min":0, "max":4, "step":0.1}'
+    - '// @input bool askHandover = true {"hint":"When a run ends, the ambulance crew asks how many need to go first (Red) before the debrief opens. Off = the debrief opens directly (the LEAF helpers turn it off for scenarios that do not test it)"}'
     - '// @ui {"widget":"group_end"}'

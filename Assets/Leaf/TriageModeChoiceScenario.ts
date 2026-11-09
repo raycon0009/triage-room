@@ -105,12 +105,15 @@ export class TriageModeChoiceScenario extends Scenario {
     const up = new vec3(0, 1, 0) // looking at the ceiling: nobody is in view
     const lookAt = (id: string): vec3 => casualtyWorldPos(tm, id).sub(FAR_VIEWER)
     debrief.setViewerOverride(FAR_VIEWER)
+    debrief.setHandoverLook(new vec3(0, 0, -1))
     debrief.timesUpSeconds = 1
     debrief.endGraceSeconds = 0.3
     S.setViewerOverride(FAR_VIEWER, up)
     cue.setViewerOverride(FAR_VIEWER, up)
 
     // ================= Run 1: Drill, one tagged, nobody in view, Scene clear =================
+    // the handover question is ON for this run: the plate then carries two lines, the worst case for the view limits
+    debrief.askHandover = true
     const seed = findSeedWith("A", "off")
     const state1 = await startRunFar(tm, cards, seed, "off")
     expect(tm.getMode()).toBe("drill")
@@ -120,6 +123,9 @@ export class TriageModeChoiceScenario extends Scenario {
     expect(S.pressSceneClear()).toBe(true)
     expect(await waitFor(() => S.isQuestionOpen(), 1000)).toBe(true)
     expect(S.answerYes()).toBe(true)
+    expect(await waitFor(() => debrief.getHandover()!.isOpen(), 4000)).toBe(true)
+    await pressButton("HandoverButton_2")
+    debrief.askHandover = false // later runs go straight to the debrief
     expect(await waitFor(() => debrief.isOpen(), 3000)).toBe(true)
     expect(await waitFor(() => debrief.isRevealDone(), 8000)).toBe(true)
     expect(await waitFor(() => !!findInteractableByName("AgainLearnButton") && !!findInteractableByName("AgainDrillButton"), 4000)).toBe(true)
@@ -171,12 +177,42 @@ export class TriageModeChoiceScenario extends Scenario {
         tipCorners.push(tipM.multiplyPoint(new vec3(x, y, 0)))
       }
     }
+    // the handover line (second line above the tip) and the plate behind both
+    const lineObj = debrief.getHandoverLineObject() as SceneObject
+    expect(lineObj === null).toBe(false)
+    const lineText = lineObj.getComponent("Component.Text") as Text
+    const lb = lineText.getBoundingBox()
+    const lineM = lineObj.getTransform().getWorldTransform()
+    const lineCorners: vec3[] = []
+    for (const x of [lb.left, lb.right]) {
+      for (const y of [lb.top, lb.bottom]) {
+        lineCorners.push(lineM.multiplyPoint(new vec3(x, y, 0)))
+      }
+    }
+    const plate = debrief.getTipPlateObject() as SceneObject
+    expect(plate === null).toBe(false)
+    const ps = debrief.getTipPlateSize()
+    const plateM = plate.getTransform().getWorldTransform()
+    const plateCorners: vec3[] = []
+    for (const sx of [-0.5, 0.5]) {
+      for (const sy of [-0.5, 0.5]) {
+        plateCorners.push(plateM.multiplyPoint(new vec3(sx * ps.w, sy * ps.h, 0)))
+      }
+    }
+    const plateInv = plate.getTransform().getInvertedWorldTransform()
+    for (const p of tipCorners.concat(lineCorners)) {
+      const l = plateInv.multiplyPoint(p)
+      expect(Math.abs(l.x)).toBeLessThan(ps.w / 2) // both lines are inside the plate
+      expect(Math.abs(l.y)).toBeLessThan(ps.h / 2)
+      expect(l.z).toBeGreaterThan(0.2) // and the plate is behind them
+    }
+    expect(debrief.getHandoverLine().indexOf("Handover: you said 2 · ") === 0).toBe(true)
     // look down at the pair (a little above its centre, towards the tip): everything stays inside the view limits
     const centre = rp.add(new vec3(0, 3, 0))
     const look = centre.sub(eye).normalize()
     let worstH = 0
     let worstV = 0
-    for (const p of faceCorners.concat(tipCorners)) {
+    for (const p of faceCorners.concat(tipCorners, lineCorners, plateCorners)) {
       const a = viewAngles(eye, look, p)
       worstH = Math.max(worstH, Math.abs(a.h))
       worstV = Math.max(worstV, Math.abs(a.v))
@@ -202,10 +238,15 @@ export class TriageModeChoiceScenario extends Scenario {
       faceTop = Math.max(faceTop, p.y)
     }
     expect(tipBottom).toBeGreaterThan(faceTop) // the tip is above the buttons, not on them
+    let plateBottom = 1e9
+    for (const p of plateCorners) {
+      plateBottom = Math.min(plateBottom, p.y)
+    }
+    expect(plateBottom).toBeGreaterThan(faceTop) // so is the plate
 
     // ---- nothing overlaps: the tip and the buttons against the panel and the map, as seen from the start position
     const pairBox = boxOf(eye, faceCorners)
-    const tipBox = boxOf(eye, tipCorners)
+    const tipBox = boxOf(eye, tipCorners.concat(lineCorners, plateCorners)) // the plate holds both lines
     const panelBox = boxOf(eye, debrief.getPanelCornersWorld())
     expect(overlaps(pairBox, tipBox, 0)).toBe(false)
     expect(overlaps(pairBox, panelBox, 1)).toBe(false)
@@ -290,6 +331,7 @@ export class TriageModeChoiceScenario extends Scenario {
 
     cue.setViewerOverride(FAR_VIEWER, up)
     S.setViewerOverride(null)
+    debrief.setHandoverLook(null)
     cleanup3(tm, cards)
   }
 }

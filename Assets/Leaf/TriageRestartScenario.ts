@@ -108,16 +108,17 @@ export class TriageRestartScenario extends Scenario {
     expect(debrief.getMapObject() === null).toBe(true)
     expect(debrief.getPanelObject() === null).toBe(true)
     expect(debrief.getRestartButtonObject() === null).toBe(true)
-    // no debrief objects left (the two permanent Scene clear panels are children of this object too, and stay)
+    // no debrief objects left (the two permanent Scene clear panels and the permanent handover question are children of this object too, and stay)
     const debriefRoot = debrief.getSceneObject()
     let leftOver = 0
     for (let i = 0; i < debriefRoot.getChildrenCount(); i++) {
-      if (debriefRoot.getChild(i).name.indexOf("SceneClear") !== 0) {
+      const childName = debriefRoot.getChild(i).name
+      if (childName.indexOf("SceneClear") !== 0 && childName !== "HandoverQuestion") {
         leftOver++
       }
     }
     expect(leftOver).toBe(0)
-    expect(debriefRoot.getChildrenCount()).toBe(2)
+    expect(debriefRoot.getChildrenCount()).toBe(3)
     expect(countNamed("DebriefPanel")).toBe(0)
     expect(countNamed("DebriefMap")).toBe(0)
     expect(countNamed("NotReachedWorld_")).toBe(0)

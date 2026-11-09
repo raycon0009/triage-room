@@ -25,6 +25,9 @@ export function getTriageMain(): TriageMain {
   if (!tm) {
     throw new Error("TriageMain component not found on TriageRoom")
   }
+  // The handover question (end of every run) is off for every scenario that does not test it, so they keep their flow.
+  // Every scenario starts here; triage-handover turns it on itself.
+  getDebrief().askHandover = false
   return tm
 }
 
