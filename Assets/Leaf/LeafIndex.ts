@@ -27,6 +27,7 @@ import {TriageTagWordScenario} from "./TriageTagWordScenario"
 import {TriageBiggerPoolScenario} from "./TriageBiggerPoolScenario"
 import {TriageRunCompareScenario} from "./TriageRunCompareScenario"
 import {TriageLookRingScenario} from "./TriageLookRingScenario"
+import {TriageGroanVariantsScenario} from "./TriageGroanVariantsScenario"
 
 @component
 export class LeafIndex extends BaseScriptComponent {
@@ -59,5 +60,6 @@ export class LeafIndex extends BaseScriptComponent {
     {id: "triage-bigger-pool", typename: TriageBiggerPoolScenario.getTypeName()},
     {id: "triage-run-compare", typename: TriageRunCompareScenario.getTypeName()},
     {id: "triage-look-ring", typename: TriageLookRingScenario.getTypeName()},
+    {id: "triage-groan-variants", typename: TriageGroanVariantsScenario.getTypeName()},
   ]
 }

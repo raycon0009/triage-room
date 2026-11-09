@@ -40,6 +40,8 @@
     groanMaxDistanceCm: false
     groanMinDistanceCm: false
     groanTrack: false
+    groanTrack2: false
+    groanTrack3: false
     groanVolume: false
     main: false
   ScriptTypesHidden:
@@ -56,6 +58,8 @@
       clock: !<MappingBased.AssignableType_3> 00000000-0000-0000-0000-000000000000
       cameraObject: !<reference.SceneObject> 00000000-0000-0000-0000-000000000000
       groanTrack: !<reference.AudioTrackAsset> 00000000-0000-0000-0000-000000000000
+      groanTrack2: !<reference.AudioTrackAsset> 00000000-0000-0000-0000-000000000000
+      groanTrack3: !<reference.AudioTrackAsset> 00000000-0000-0000-0000-000000000000
       groanIntervalSeconds: !<float> 5.000000
       firstGroanDelaySeconds: 1.500000
       groanVolume: 0.500000
@@ -78,6 +82,8 @@
     - '// @input AssignableType_3 clock {"hint":"Run clock (the cue is off before Start and after the run has ended)"}'
     - '// @input SceneObject cameraObject {"hint":"The camera object (viewer eye position / look direction / field of view)"}'
     - '// @input Asset.AudioTrackAsset groanTrack {"hint":"The groan sound (generated with build-sfx, Assets/GeneratedSFX/triage_groan.wav)"}'
+    - '// @input Asset.AudioTrackAsset groanTrack2 {"hint":"Second groan (Assets/GeneratedSFX/triage_groan_b.wav)"}'
+    - '// @input Asset.AudioTrackAsset groanTrack3 {"hint":"Third groan (Assets/GeneratedSFX/triage_groan_c.wav)"}'
     - '// @ui {"widget":"group_end"}'
     - '// @ui {"widget":"separator"}'
     - '// @ui {"widget":"label", "label":"<span style=\"color: #60A5FA;\">Settings</span>"}'

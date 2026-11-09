@@ -681,3 +681,55 @@ Both were taken with a temporary LEAF scenario that held the debrief open (delet
 - The ring is head direction in the preview, not eye tracking, and has never run on glasses. The preview's field of view is narrow (one 30 degree segment lit when looking ahead), so on a device with a wider view more of the front will light.
 - The reference direction is the room's front, not the head's yaw at Start.
 - The first `triage-hints-by-mode` failure was a wall-clock timing check (not touched by this change); it passed on the re-run.
+
+## Groan variants: three calm groans, never the same twice in a row
+
+Tag `before-groan-variants` marks the commit before this change (dce7be5).
+
+### What changed
+- Two new groans next to `triage_groan.wav`, made with build-sfx (local synthesis, nothing downloaded): `triage_groan_b.wav` (lower, rounder "mmm-oh", slow, pitch dips then settles) and `triage_groan_c.wav` (a slightly higher, two-part "uhh" sigh). Both 1.3 s mono, a soft voiced tone with a little breath under it, no screaming, gasping or crying. Level matched to the first one (RMS 0.223 for the original and B; 0.205 for C, which hit the 0.95 peak limit first).
+- New pure module `TriageGroanPick.ts` (no Lens API): `pickGroan(seed, n, prev)` and `groanSequence(seed, plays)`. The groan is a hash of the run's seed and the play number; with a previous groan it picks one of the other two, so the same one never plays twice in a row.
+- `TriageBehindCue.ts`: new inputs `groanTrack2` / `groanTrack3` (wired in `Scene.scene`), the track is chosen from the seed on each play, and the test hook `getLastGroanIndex()` returns the index (0-2) of the last groan played in the run (-1 if none yet). Learn plays a seeded order; Drill still plays exactly one (the seed's first pick). Caption, timing, volume, spatial settings and arrow are unchanged.
+- `Scene.scene`: the two track references, plus Lens Studio's usual reshuffle of the LEAF bridge object IDs. "Use demo seed" on TriageMain is still off.
+
+### Tests
+- New Node `groan-pick.test.mjs` (9 checks): never the same twice in a row (500 seeds x 12 plays), always 0-2, all three used, the same seed gives the same sequence, at least 2 different groans in the first 4, the first groan is spread over all three.
+- New LEAF `triage-groan-variants` (registered in LeafIndex): Learn, over 4 groans no two in a row are the same and at least 2 different ones play, in the order the seed asks for; the same seed again gives the same order; Drill plays exactly 1 groan (still 1 after more waiting), and it is the seed's pick. The first run failed on my own test (it assumed no groan had played by the time the run-start helper returned; the first groan came earlier). I lengthened the first-groan delay in the test; nothing in the Lens changed. It passed on the re-run.
+- All 10 Node test files pass (debrief-layout 40, figures 82, first-seen 18, groan-pick 9, learn-chips 15, look-ring 19, pool 45, run-compare 15, scoring 23, start-engine 12 brief cases).
+
+### LEAF results (all 28, one at a time, each after its own preview reset and a list_leaf_scenarios answer)
+
+| Scenario | Result |
+|---|---|
+| triage-start-four-casualties | PASS |
+| triage-one-behind | PASS |
+| triage-scenario-line | PASS |
+| triage-seed-repeatable | PASS |
+| triage-real-size-on-floor | PASS |
+| triage-behind-never-walker-f-x | PASS |
+| triage-card-opens-proximity-and-open | PASS |
+| triage-card-scripted-results-and-tag-gating | PASS |
+| triage-tag-closes-card-adds-band | PASS |
+| triage-start-rules-in-lens | PASS |
+| triage-callout-walker-only | PASS |
+| triage-timer-chime-and-time-up | PASS |
+| triage-groan-and-arrow-behind | PASS |
+| triage-debrief-all-tagged | PASS |
+| triage-debrief-time-up-not-reached | PASS |
+| triage-restart-and-seeds | PASS |
+| triage-start-screen | PASS |
+| triage-pose-variation | PASS |
+| triage-learn-mode | PASS (the run started slowly: the tool call timed out twice; the log shows `PASSED: triage-learn-mode` in 26.5 s after its own start) |
+| triage-debrief-reveal | PASS |
+| triage-scene-clear | PASS |
+| triage-hints-by-mode | PASS |
+| triage-debrief-first-seen | PASS |
+| triage-tag-word-in-view | PASS |
+| triage-bigger-pool | PASS |
+| triage-run-compare | PASS |
+| triage-look-ring | PASS |
+| triage-groan-variants | PASS (first run failed on a test timing assumption, see above; passed on the re-run) |
+
+### Not proven
+- Audio was not heard: the tests count plays and check which track is chosen. I cannot listen to the new groans, so how calm and natural they sound, and whether they feel like the same voice as the first, is unproven. They are synthetic.
+- The new groans are not wired into anything besides the cue; the recorded demo video still uses whichever groan the seed picks.

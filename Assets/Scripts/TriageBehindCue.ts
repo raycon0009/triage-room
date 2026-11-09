@@ -16,7 +16,9 @@
  *   stops when the run ends.
  * Public API (for tests): getGroanSource(), getGroanPlayCount(), isArrowVisible(), getArrowSide(), isBehindInView(),
  *   getBehindId(), setViewerOverride(position, look), isCaptionVisible(), getCaptionText(), getCaptionObject(),
- *   getCaptionRect(), getCaptionAlpha(), hasSeenBehind().
+ *   getCaptionRect(), getCaptionAlpha(), hasSeenBehind(), getLastGroanIndex().
+ * Groan variety: three soft groans (groanTrack, groanTrack2, groanTrack3). Which one plays is decided by the run's seed
+ *   (TriageGroanPick): the same seed gives the same sounds in the same order; Learn never plays the same one twice in a row.
  * Must not: tag anyone, own the timer, or open cards.
  */
 import { TriageMain } from "./TriageMain"
@@ -25,6 +27,7 @@ import { TriageRunClock } from "./TriageRunClock"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
 import { TEXT_WHITE, sizesAt } from "./TriageUi"
 import { yawDegOf } from "./TriageLookRing"
+import { pickGroan } from "./TriageGroanPick"
 
 export const GROAN_CAPTION = "A groan, somewhere behind you"
 /** The caption is fully shown for this long, then fades over CAPTION_FADE (about 4 s in all). */
@@ -59,6 +62,12 @@ export class TriageBehindCue extends BaseScriptComponent {
   @input
   @hint("The groan sound (generated with build-sfx, Assets/GeneratedSFX/triage_groan.wav)")
   groanTrack!: AudioTrackAsset
+  @input
+  @hint("Second groan (Assets/GeneratedSFX/triage_groan_b.wav)")
+  groanTrack2!: AudioTrackAsset
+  @input
+  @hint("Third groan (Assets/GeneratedSFX/triage_groan_c.wav)")
+  groanTrack3!: AudioTrackAsset
   @ui.group_end
 
   @ui.separator
@@ -116,6 +125,8 @@ export class TriageBehindCue extends BaseScriptComponent {
   private groanSource: SceneObject | null = null
   private groanAudio: AudioComponent | null = null
   private groanPlays = 0
+  private lastGroanIndex = -1
+  private runSeed = 0
   private untilNext = 0
   private behindId: string | null = null
   private inView = false
@@ -139,7 +150,7 @@ export class TriageBehindCue extends BaseScriptComponent {
   }
 
   private onStart(): void {
-    if (!this.main || !this.cards || !this.clock || !this.cameraObject || !this.groanTrack) {
+    if (!this.main || !this.cards || !this.clock || !this.cameraObject || !this.groanTrack || !this.groanTrack2 || !this.groanTrack3) {
       print("TriageBehindCue: required @input not wired - check the scene bootstrap")
       return
     }
@@ -186,6 +197,10 @@ export class TriageBehindCue extends BaseScriptComponent {
   getGroanPlayCount(): number {
     return this.groanPlays
   }
+  /** Test hook: index (0-2) of the groan played last in this run, -1 if none has played. */
+  getLastGroanIndex(): number {
+    return this.lastGroanIndex
+  }
   isGroanPlaying(): boolean {
     return !!this.groanAudio && !isNull(this.groanAudio) && this.groanAudio.isPlaying()
   }
@@ -227,6 +242,7 @@ export class TriageBehindCue extends BaseScriptComponent {
     this.groanSource = null
     this.groanAudio = null
     this.groanPlays = 0
+    this.lastGroanIndex = -1
     this.inView = false
     this.seenOnce = false
     this.drillGroanDone = false
@@ -237,6 +253,7 @@ export class TriageBehindCue extends BaseScriptComponent {
     if (this.arrow) this.arrow.enabled = false
     const state = this.main.getRunState()
     this.behindId = state.behindId
+    this.runSeed = state.seed
     const cas = this.main.getCasualtyObject(state.behindId)
     if (!cas) return
     const so = global.scene.createSceneObject("GroanSource")
@@ -430,6 +447,10 @@ export class TriageBehindCue extends BaseScriptComponent {
 
   private playGroan(): void {
     if (!this.groanAudio || isNull(this.groanAudio)) return
+    // which groan: decided by the run's seed; Learn never repeats the one before (Drill plays just one)
+    const idx = pickGroan(this.runSeed, this.groanPlays, this.lastGroanIndex)
+    this.groanAudio.audioTrack = idx === 0 ? this.groanTrack : idx === 1 ? this.groanTrack2 : this.groanTrack3
+    this.lastGroanIndex = idx
     this.groanAudio.play(1)
     this.groanPlays++
     this.captionAge = 0 // the caption shows each time the groan plays
