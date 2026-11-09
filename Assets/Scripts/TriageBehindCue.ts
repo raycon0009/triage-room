@@ -24,6 +24,7 @@ import { TriageCheckCards } from "./TriageCheckCards"
 import { TriageRunClock } from "./TriageRunClock"
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
 import { TEXT_WHITE, sizesAt } from "./TriageUi"
+import { yawDegOf } from "./TriageLookRing"
 
 export const GROAN_CAPTION = "A groan, somewhere behind you"
 /** The caption is fully shown for this long, then fades over CAPTION_FADE (about 4 s in all). */
@@ -152,8 +153,14 @@ export class TriageBehindCue extends BaseScriptComponent {
     this.buildArrow()
     this.buildCaption()
     this.main.onRegenerated.add(() => this.setupRun())
-    this.cards.onCasualtyTagged.add(() => this.main.getFirstSeen().noteAction(this.clock.getElapsed()))
-    this.clock.onRunEnded.add(() => this.main.getFirstSeen().stop())
+    this.cards.onCasualtyTagged.add(() => {
+      this.main.getFirstSeen().noteAction(this.clock.getElapsed())
+      this.main.getLookRing().noteAction()
+    })
+    this.clock.onRunEnded.add(() => {
+      this.main.getFirstSeen().stop()
+      this.main.getLookRing().stop()
+    })
     this.main.onRunStarted.add(() => {
       this.untilNext = this.firstGroanDelaySeconds
       this.seenOnce = false
@@ -313,6 +320,9 @@ export class TriageBehindCue extends BaseScriptComponent {
     const inView: { [id: string]: boolean } = {}
     for (const id of this.main.getCasualtyIds()) inView[id] = this.computeInView(eye, look, id)
     this.main.getFirstSeen().sample(this.clock.getElapsed(), inView)
+    // the look-around ring: the horizontal direction of the same eye and look, with the camera's horizontal half field of view
+    const halfFovDeg = (Math.atan(this.halfTans().h) * 180) / Math.PI
+    this.main.getLookRing().sample(yawDegOf(look.x, look.z), halfFovDeg)
   }
 
   private tick(): void {

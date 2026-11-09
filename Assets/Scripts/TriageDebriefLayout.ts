@@ -37,6 +37,8 @@ export const TIGHT_FROM_NOTES = 3
 const TIGHT_NOTE_LINE = 1.0
 const TIGHT_ROW_GAP = 0.1
 const TIGHT_PAD_Y = 1.0
+/** A small gap (cm) between the "in view" lines and the "Last run / This run" lines, so the four small lines do not run together. */
+export const NOTE_GAP = 0.8
 /** about this many characters of explanation fit on one line at the small size across the table's text columns */
 export const EXPLANATION_CHARS_PER_LINE = 44
 
@@ -71,7 +73,11 @@ export interface PanelLayout {
   rows: RowLayout[]
 }
 
-export function layoutPanel(entries: RowIn[], sizes: Sizes, notes: number = 0): PanelLayout {
+/**
+ * `notes` = number of note lines. `gapBefore` = index of the first note line that follows the gap (the first comparison
+ * line); 0 means no gap. The gap only applies when 0 < gapBefore < notes.
+ */
+export function layoutPanel(entries: RowIn[], sizes: Sizes, notes: number = 0, gapBefore: number = 0): PanelLayout {
   const tight = notes >= TIGHT_FROM_NOTES
   const padY = tight ? TIGHT_PAD_Y : PAD_Y
   const rowGap = tight ? TIGHT_ROW_GAP : ROW_GAP
@@ -85,6 +91,7 @@ export function layoutPanel(entries: RowIn[], sizes: Sizes, notes: number = 0): 
   const noteY: number[] = []
   const pNote = tight ? (sizes.small / 43.9) * TIGHT_NOTE_LINE : pitch(sizes.small)
   for (let i = 0; i < notes; i++) {
+    if (gapBefore > 0 && i === gapBefore) cursor += NOTE_GAP
     noteY.push(-(cursor + pNote / 2))
     cursor += pNote
   }

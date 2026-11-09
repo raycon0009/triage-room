@@ -17,6 +17,7 @@ import { DEMO_SEED, ForceBlack, RunLayout, ROOM, generateRun, layoutSignature, r
 import { TriageFigureBuilder } from "./TriageFigureBuilder"
 import { lookFor } from "./TriageFigurePose"
 import { FirstSeenTracker } from "./TriageFirstSeen"
+import { LookRingTracker } from "./TriageLookRing"
 
 export interface CasualtyState {
   id: CasualtyId
@@ -136,6 +137,8 @@ export class TriageMain extends BaseScriptComponent {
   private builder!: TriageFigureBuilder
   private casualtyObjects: { [id: string]: SceneObject } = {}
   private firstSeen = new FirstSeenTracker()
+  /** which directions were in view before the first tag or call-out (the debrief map's ring) */
+  private lookRing = new LookRingTracker()
 
   onAwake() {
     this.createEvent("OnStartEvent").bind(() => this.onStart())
@@ -219,6 +222,7 @@ export class TriageMain extends BaseScriptComponent {
     this.started = false
     this.buildCasualties()
     this.firstSeen.reset(this.run.casualties.map((c) => c.id))
+    this.lookRing.reset()
     this.casualtiesRoot.enabled = false
     const state = this.getRunState()
     print("TRIAGE_RUN_STATE " + JSON.stringify(state))
@@ -231,6 +235,7 @@ export class TriageMain extends BaseScriptComponent {
     if (this.started) return
     if (mode) this.setMode(mode)
     this.started = true
+    this.lookRing.reset()
     this.casualtiesRoot.enabled = true
     this.startUI.hide()
     this.scenarioUI.showScenario(this.scenarioText, this.scenarioHoldSeconds, this.scenarioFadeSeconds)
@@ -245,6 +250,11 @@ export class TriageMain extends BaseScriptComponent {
   /** When each casualty first came into view this run (TriageBehindCue fills it in; the debrief reads it). */
   getFirstSeen(): FirstSeenTracker {
     return this.firstSeen
+  }
+
+  /** The look-around ring: segments in view from Start until the first tag or call-out (TriageBehindCue fills it in). */
+  getLookRing(): LookRingTracker {
+    return this.lookRing
   }
 
   /** True once the first run layout exists. */

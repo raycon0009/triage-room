@@ -12,7 +12,7 @@ A timed mass-casualty triage drill for Snap Spectacles, built in Lens Studio. It
 4. Tag them: Green, Yellow, Red or Expectant. Call out to the walking casualty to send them to the green zone.
 5. Someone behind you groans. **Drill:** one groan about 1.5 s after Start, with the caption "A groan, somewhere behind you" and no arrow, so you can really miss them. **Learn:** the groan repeats (same caption) and an arrow at the edge of your view points to them until you first see them, then it stops for good.
 6. After your first tag or call-out a **Scene clear** button follows you at the bottom of your view. Pinch it and you are asked "Have you found everyone?". "Keep looking" carries on; "Yes, scene clear" ends the run. Anyone you did not tag shows NOT REACHED and counts as wrong.
-7. When all are tagged, you say scene clear, or time is up, a debrief shows each casualty: your tag, the correct tag, the rule that decides it, time taken, extra checks, and anyone you never reached. Under the summary it says when everyone came into view ("Everyone in view by 0:48" or "1 person never came into view"), and "You started before seeing everyone" if you tagged someone first. After a Restart, the debrief also compares this run with the last one (correct tags and when everyone came into view, with each run's mode). Restart gives a new layout.
+7. When all are tagged, you say scene clear, or time is up, a debrief shows each casualty: your tag, the correct tag, the rule that decides it, time taken, extra checks, and anyone you never reached. Under the summary it says when everyone came into view ("Everyone in view by 0:48" or "1 person never came into view"), and "You started before seeing everyone" if you tagged someone first. After a Restart, the debrief also compares this run with the last one (correct tags and when everyone came into view, with each run's mode). Restart gives a new layout. The debrief map shows a ring of the directions that were in view before your first tag or call-out.
 
 Poses vary between runs, so you can't tag by appearance — you have to check.
 
@@ -38,6 +38,8 @@ Select the TriageMain object and tick **Use demo seed**. It gives a fixed layout
   - `node devpost/tests/debrief-layout.test.mjs`
   - `node devpost/tests/first-seen.test.mjs`
   - `node devpost/tests/pool.test.mjs`
+  - `node devpost/tests/run-compare.test.mjs`
+  - `node devpost/tests/look-ring.test.mjs`
 
 ## Honest limits
 

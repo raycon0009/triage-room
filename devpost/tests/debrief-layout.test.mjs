@@ -1,10 +1,10 @@
 // Run with: node devpost/tests/debrief-layout.test.mjs  (Node 22.18+, strips TS types)
 // The debrief panel's size and reveal order: pure maths from TriageDebriefLayout.ts + real scoring entries.
-import { layoutPanel as layout, revealSchedule, PANEL_W } from "../../Assets/Scripts/TriageDebriefLayout.ts"
+import { layoutPanel as layout, revealSchedule, PANEL_W, NOTE_GAP } from "../../Assets/Scripts/TriageDebriefLayout.ts"
 import { sizesAt } from "../../Assets/Scripts/TriageUiSizes.ts"
 
 const DEBRIEF_SIZES = sizesAt(120, 1.4) // same as TriageUi.DEBRIEF_SIZES
-const layoutPanel = (e, notes = 0) => layout(e, DEBRIEF_SIZES, notes)
+const layoutPanel = (e, notes = 0, gap = 0) => layout(e, DEBRIEF_SIZES, notes, gap)
 import { buildEntry, orderRows } from "../../Assets/Scripts/TriageScoring.ts"
 import { CASUALTY_TABLE } from "../../Assets/Scripts/TriageData.ts"
 
@@ -130,6 +130,40 @@ check("nobody missed: rows come in one by one from the first", noMiss.filter((s)
   const plain = layoutPanel(entries(["correct", "correct", "correct", "correct"]))
   check("no view lines: the layout has none", plain.noteY.length === 0)
   check("the view lines use the existing smallest size, not smaller", DEBRIEF_SIZES.small >= 100, DEBRIEF_SIZES)
+}
+
+// ---- the gap between the "in view" lines and the comparison lines (4 note lines = 2 view + 2 comparison; 3 = 1 + 2)
+{
+  for (const [label, view, count] of [["nobody tagged", 1, 3], ["someone tagged", 2, 4]]) {
+    let w = 0
+    let combo = ""
+    for (const a of S) for (const b of S) for (const c of S) for (const d of S) {
+      const allMissed = [a, b, c, d].every((x) => x === "missed")
+      if ((label === "nobody tagged") !== allMissed) continue
+      const ang = angle(layoutPanel(entries([a, b, c, d]), count, view).height)
+      if (ang > w) { w = ang; combo = [a, b, c, d].join(",") }
+    }
+    check("gap, " + label + " (" + count + " note lines): every combination fits the view limit (17 degrees) with 0.4 to spare", w < VIEW_HALF_V_DEG - 0.4, { worstDeg: Math.round(w * 100) / 100, combo })
+  }
+  for (const cast of [["W3", "G", "J", "X"], ["H", "G", "J", "W3"], ["G", "H", "J", "X"]]) {
+    let w = 0
+    for (const a of S) for (const b of S) for (const c of S) for (const d of S) {
+      const allMissed = [a, b, c, d].every((x) => x === "missed")
+      w = Math.max(w, angle(layoutPanel(entries([a, b, c, d], cast), allMissed ? 3 : 4, allMissed ? 1 : 2).height))
+    }
+    check("gap, 4 note lines, cast " + cast.join(",") + ": within the view limit", w < VIEW_HALF_V_DEG - 0.4, { worstDeg: Math.round(w * 100) / 100 })
+  }
+  const e4 = entries(["missed", "correct", "wrong", "correct"])
+  const withGap = layoutPanel(e4, 4, 2)
+  const noGap = layoutPanel(e4, 4, 0)
+  const pitchNote = noGap.noteY[0] - noGap.noteY[1]
+  check("gap: the space between the 2nd and 3rd note line is larger by NOTE_GAP, the other spaces are unchanged",
+    Math.abs((withGap.noteY[1] - withGap.noteY[2]) - (pitchNote + NOTE_GAP)) < 1e-9 && Math.abs((withGap.noteY[0] - withGap.noteY[1]) - pitchNote) < 1e-9 && Math.abs((withGap.noteY[2] - withGap.noteY[3]) - pitchNote) < 1e-9, { NOTE_GAP, pitchNote })
+  check("gap: the panel grows by exactly the gap", Math.abs(withGap.height - noGap.height - NOTE_GAP) < 1e-9)
+  check("gap: the first two note lines and the summary have not moved", withGap.noteY[0] === noGap.noteY[0] && withGap.noteY[1] === noGap.noteY[1] && withGap.summaryY[1] === noGap.summaryY[1])
+  check("gap: note lines still stack in order above the first row", withGap.noteY.every((y, i) => i === 0 || y < withGap.noteY[i - 1]) && withGap.rows[0].y1 < withGap.noteY[3])
+  check("no comparison lines: no gap (gapBefore 0, or the gap at the end, changes nothing)", layoutPanel(e4, 2, 0).height === layoutPanel(e4, 2, 2).height && layoutPanel(e4, 2, 0).height === layoutPanel(e4, 2).height)
+  check("the gap is small (under 1.2 cm) and text sizes are unchanged", NOTE_GAP > 0 && NOTE_GAP < 1.2 && DEBRIEF_SIZES.small >= 100)
 }
 
 console.log(pass + " passed, " + fail + " failed")

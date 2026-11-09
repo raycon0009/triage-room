@@ -622,3 +622,62 @@ Tag `before-run-compare` marks the commit before this change (03f239e).
 
 ### Not proven
 - Real glasses. The comparison is within one Lens session only, by design.
+
+## Debrief map shows what was in view before you started
+
+Tag `before-look-ring` marks the commit before this change (3d5af34).
+
+### What changed
+- New pure module `TriageLookRing.ts` (no Lens API): 12 segments of 30 degrees (segment k centred on k x 30, 0 = straight ahead = the start view = world -Z, positive = right), `LookRingTracker.sample(yaw, halfFov)`, `noteAction()` / `stop()` (sampling ends at the first tag or call-out, or at the end of the run), `reset()`. A segment is in view if its centre direction was within the camera's horizontal half field of view at any sampled moment; the wrap at 0/360 is handled.
+- `TriageMain.ts` owns the tracker (`getLookRing()`), reset on every new run layout (Restart) and on Start. `TriageBehindCue.ts` samples it every frame in `sampleFirstSeen`, with the same eye and look as the first-seen record (so `setViewerOverride` drives it), and stops it on the first tag / call-out (`onCasualtyTagged`) and when the run ends.
+- `TriageDebrief.ts` `buildMap` draws the ring around the start marker, flat on the map in the map's orientation: inner radius 5.4 cm, outer 9.4 cm; lit segments are filled light tiles, the others a thin light outline (never dark); one label "Lit: in view before you started" beside it. The "You start here" label was raised from 8 cm to 18 cm above the map, because from the standing viewpoint the ring's far arc ran behind it (first capture). That is the only existing thing that moved.
+- `TriageDebriefLayout.ts`: `layoutPanel(..., notes, gapBefore)` adds a 0.8 cm gap (`NOTE_GAP`) before the first comparison line. **Chose the gap, not the lighter colour**: it fits. Worst panel 16.49 degrees (limit 17), 16.13 with nobody tagged; text sizes unchanged.
+- Nothing else changed: no START rule, figure or other UI, no new packages. `Scene.scene` untouched.
+
+### Tests
+- New Node `look-ring.test.mjs` (19 checks): looking only ahead lights only the front segments, a full turn (both ways) lights all 12, wrap-around at 0/360, sampling stops at the first tag or call-out and at the end of the run, no action means the whole run counts, reset clears it.
+- `debrief-layout.test.mjs` (40 checks, was 29): the gap with 3 and 4 note lines, all 81 status combinations and the three new-pool casts, within the view limit; the gap is exactly NOTE_GAP and moves nothing else.
+- All 9 Node test files pass (debrief-layout 40, figures 82, first-seen 18, learn-chips 15, look-ring 19, pool 45, run-compare 15, scoring 23, start-engine 12 brief cases).
+- New LEAF `triage-look-ring` (registered in LeafIndex): Run 1, Drill, fixed seed, viewer looking straight ahead, one front casualty tagged, Scene clear: the ring is on the map, flat, segment 0 ahead and segment 3 to the right; the front segment is lit and segments 5-7 are not; lit and unlit parts are light (every colour channel above 0.6); the person behind has a marker next to an unlit segment; looking round after the first tag lights nothing; the ring clears every marker, the green zone and the label, and the label sits beside the ring and the start label; the label text is right. Restart: reset (looking backwards lights the back and not the front), then a full turn before the first tag lights all 12.
+
+### LEAF results (all 27, one at a time, each after its own preview reset and a list_leaf_scenarios answer; result taken from the log after that scenario's own start)
+
+| Scenario | Result |
+|---|---|
+| triage-start-four-casualties | PASS |
+| triage-one-behind | PASS |
+| triage-scenario-line | PASS |
+| triage-seed-repeatable | PASS |
+| triage-real-size-on-floor | PASS |
+| triage-behind-never-walker-f-x | PASS |
+| triage-card-opens-proximity-and-open | PASS |
+| triage-card-scripted-results-and-tag-gating | PASS |
+| triage-tag-closes-card-adds-band | PASS |
+| triage-start-rules-in-lens | PASS |
+| triage-callout-walker-only | PASS |
+| triage-timer-chime-and-time-up | PASS |
+| triage-groan-and-arrow-behind | PASS |
+| triage-debrief-all-tagged | PASS |
+| triage-debrief-time-up-not-reached | PASS |
+| triage-restart-and-seeds | PASS |
+| triage-start-screen | PASS |
+| triage-pose-variation | PASS |
+| triage-learn-mode | PASS |
+| triage-debrief-reveal | PASS |
+| triage-scene-clear | PASS |
+| triage-hints-by-mode | PASS (first run failed on a wall-clock timing check, 1.121 s against over 1.2 s; passed on the re-run after a preview reset, nothing changed in between) |
+| triage-debrief-first-seen | PASS |
+| triage-tag-word-in-view | PASS |
+| triage-bigger-pool | PASS |
+| triage-run-compare | PASS |
+| triage-look-ring | PASS |
+
+### Captures (CapturePanelScreenshotTool only)
+- `devpost/captures/look-ring-missed.jpg`: the debrief map after a Drill run where the player only looked straight ahead and tagged one front casualty: only the front segment is lit, the person behind (marker 1) sits by unlit segments. Camera lowered with MovePreviewCamera.
+- `devpost/captures/run-compare-gap.jpg`: the debrief panel with the "Last run / This run" lines, the gap under the "in view" lines.
+Both were taken with a temporary LEAF scenario that held the debrief open (deleted before the commit; `LeafIndex` restored).
+
+### Not proven
+- The ring is head direction in the preview, not eye tracking, and has never run on glasses. The preview's field of view is narrow (one 30 degree segment lit when looking ahead), so on a device with a wider view more of the front will light.
+- The reference direction is the room's front, not the head's yaw at Start.
+- The first `triage-hints-by-mode` failure was a wall-clock timing check (not touched by this change); it passed on the re-run.

@@ -34,6 +34,7 @@ import { TriageFigureBuilder, TAG_BAND_COLOUR } from "./TriageFigureBuilder"
 import { CASUALTY_TABLE } from "./TriageData"
 import { ROOM } from "./TriageLayout"
 import { RunRecord, compareLines, makeRecord } from "./TriageRunCompare"
+import { RING_LABEL, RING_SEGMENTS, SEGMENT_DEG } from "./TriageLookRing"
 import { DebriefEntry, DebriefSummary, buildEntry, orderRows, summarize } from "./TriageScoring"
 import { RoundedRectangle } from "SpectaclesUIKit.lspkg/Scripts/Visuals/RoundedRectangle/RoundedRectangle"
 import { DEBRIEF_SIZES, TEXT_SMALL, addPressPop, clamp01, easeOutCubic, finishMotion, lerp, showPanel } from "./TriageUi"
@@ -53,6 +54,11 @@ const FLASH_DIM = new vec4(1, 0.3, 0.3, 1) // the flash alternates between this 
 
 // ---- panel layout: see TriageDebriefLayout.ts (pure, tested in Node)
 const GUTTER_Z = 0.6
+// ---- the look-around ring on the map (cm on the map, around the start marker)
+const RING_INNER = 5.4
+const RING_OUTER = 9.4
+const RING_LIGHT = [0.85, 0.95, 1.0] // light: the display is additive, so dark would disappear
+const RING_LINE = [0.78, 0.86, 0.98]
 /** How long an old debrief stays (hidden) before it is destroyed, so the interactor that pressed Restart lets go first */
 const RETIRE_SECONDS = 0.5
 /** After "Yes, scene clear" the debrief panel appears this long after the run ends (no Time's up panel) */
@@ -151,6 +157,9 @@ export class TriageDebrief extends BaseScriptComponent {
   private lastRun: RunRecord | null = null
   private panelTexts: { id: string; name: string; text: Text; size: number; obj: SceneObject }[] = []
   private billboards: SceneObject[] = []
+  private ringObj: SceneObject | null = null
+  private ringLabel: Text | null = null
+  private ringLit: boolean[] = []
   private entries: DebriefEntry[] = []
   private summary: DebriefSummary | null = null
   private reason: EndReason | null = null
@@ -237,6 +246,24 @@ export class TriageDebrief extends BaseScriptComponent {
   }
   getMapObject(): SceneObject | null {
     return this.map && !isNull(this.map) ? this.map : null
+  }
+  /** The look-around ring on the map (null before a debrief has opened). Children RingSeg_0..11 (0 = straight ahead, clockwise from above); lit ones have a "Fill", the others "Outline" bars. */
+  getRingObject(): SceneObject | null {
+    return this.ringObj && !isNull(this.ringObj) ? this.ringObj : null
+  }
+  getRingLitFlags(): boolean[] {
+    return this.ringLit.slice()
+  }
+  getRingLabelText(): string {
+    return this.ringLabel ? this.ringLabel.text : ""
+  }
+  getRingLabelObject(): SceneObject | null {
+    return this.ringLabel && !isNull(this.ringLabel) ? this.ringLabel.sceneObject : null
+  }
+  /** Ring centre (map-local x, z), its outer radius and the label's left edge x, all in cm on the map. */
+  getRingGeometry(): { x: number; z: number; outer: number; inner: number; labelX: number } {
+    const midZ = (ROOM.frontWallZ + ROOM.backZ) / 2
+    return { x: 0, z: (0 - midZ) * this.mapScale, outer: RING_OUTER, inner: RING_INNER, labelX: RING_OUTER + 2 }
   }
   getPanelObject(): SceneObject | null {
     return this.panel && !isNull(this.panel) ? this.panel : null
@@ -558,6 +585,9 @@ export class TriageDebrief extends BaseScriptComponent {
     this.compareLines = []
     this.panelTexts = []
     this.billboards = []
+    this.ringObj = null
+    this.ringLabel = null
+    this.ringLit = []
     this.entries = []
     this.summary = null
     this.reason = null
@@ -660,9 +690,12 @@ export class TriageDebrief extends BaseScriptComponent {
     b.createPart(this.map, "StartMarker", "box", [0, 1, startZ], [3.2, 1.2, 3.2], [1, 1, 1])
     const startLabel = global.scene.createSceneObject("StartLabel")
     startLabel.setParent(this.map)
-    startLabel.getTransform().setLocalPosition(new vec3(0, 8, startZ))
+    // 18 cm up (was 8) so the look-around ring, flat round the start marker, does not run behind this label from the standing viewpoint
+    startLabel.getTransform().setLocalPosition(new vec3(0, 18, startZ))
     this.addText(startLabel, "StartText", "You start here", 100, WHITE, 0, 0, "center", 30)
     this.billboards.push(startLabel)
+
+    this.buildLookRing(startZ)
 
     // casualties at their real positions (where they are NOW: a called-out walker stands in the green circle)
     const room = this.main.sceneObject.getTransform().getWorldPosition()
@@ -696,6 +729,47 @@ export class TriageDebrief extends BaseScriptComponent {
     }
   }
 
+  /**
+   * The look-around ring: 12 segments of 30 degrees around the start marker, flat on the map in the map's orientation
+   * (segment 0 = straight ahead = the start view, then clockwise seen from above). A segment that was in view before the
+   * first tag or call-out is a filled light tile; the others are a thin light outline only (never dark). One label beside it.
+   */
+  private buildLookRing(startZ: number): void {
+    const b = this.builder!
+    const ring = global.scene.createSceneObject("LookRing")
+    ring.setParent(this.map!)
+    ring.getTransform().setLocalPosition(new vec3(0, 0, startZ))
+    this.ringObj = ring
+    this.ringLit = this.main.getLookRing().litFlags()
+    const rMid = (RING_INNER + RING_OUTER) / 2
+    const depth = RING_OUTER - RING_INNER
+    const w = 2.8 // tile width along the circle (the gap between neighbours is small)
+    const bar = 0.3
+    for (let k = 0; k < RING_SEGMENTS; k++) {
+      const th = (k * SEGMENT_DEG * Math.PI) / 180
+      const seg = global.scene.createSceneObject("RingSeg_" + k)
+      seg.setParent(ring)
+      seg.getTransform().setLocalPosition(new vec3(rMid * Math.sin(th), 0, -rMid * Math.cos(th)))
+      // local +Z points outward from the ring centre
+      seg.getTransform().setLocalRotation(quat.fromEulerVec(new vec3(0, Math.PI - th, 0)))
+      if (this.ringLit[k]) {
+        b.createPart(seg, "Fill", "box", [0, 0.7, 0], [w, 0.5, depth], RING_LIGHT)
+      } else {
+        b.createPart(seg, "OutlineIn", "box", [0, 0.6, -depth / 2 + bar / 2], [w, 0.3, bar], RING_LINE)
+        b.createPart(seg, "OutlineOut", "box", [0, 0.6, depth / 2 - bar / 2], [w, 0.3, bar], RING_LINE)
+        b.createPart(seg, "OutlineL", "box", [-w / 2 + bar / 2, 0.6, 0], [bar, 0.3, depth], RING_LINE)
+        b.createPart(seg, "OutlineR", "box", [w / 2 - bar / 2, 0.6, 0], [bar, 0.3, depth], RING_LINE)
+      }
+    }
+    const lab = global.scene.createSceneObject("RingLabel")
+    lab.setParent(this.map!)
+    lab.getTransform().setLocalPosition(new vec3(RING_OUTER + 2, 3, startZ + 3))
+    this.ringLabel = this.addText(lab, "RingText", RING_LABEL, 70, WHITE, 0, 0, "left", 24)
+    this.ringLabel.horizontalOverflow = HorizontalOverflow.Wrap
+    this.ringLabel.layoutRect = Rect.create(0, 24, -4, 4)
+    this.billboards.push(lab)
+  }
+
   /** "NOT REACHED" over the real, missed person: on a small backing plate so it reads over the wall. */
   private buildWorldFlash(parts: RowParts, at: vec3): void {
     const wf = global.scene.createSceneObject("NotReachedWorld_" + parts.id)
@@ -725,7 +799,7 @@ export class TriageDebrief extends BaseScriptComponent {
     this.panelPlate = root.getComponent(RoundedRectangle.getTypeName()) as RoundedRectangle
 
     // measurements come from TriageDebriefLayout (pure, tested in Node); this only draws them
-    const lay = layoutPanel(this.entries, DEBRIEF_SIZES, this.viewLines.length + this.compareLines.length)
+    const lay = layoutPanel(this.entries, DEBRIEF_SIZES, this.viewLines.length + this.compareLines.length, this.compareLines.length > 0 ? this.viewLines.length : 0)
     const sum = this.summary!
     for (let i = 0; i < 2; i++) {
       const t = this.addText(content, "Summary" + (i + 1), sum.lines[i], DEBRIEF_SIZES.title, WHITE, 0, lay.summaryY[i], "center", PANEL_W - 2 * MARGIN)
