@@ -1,6 +1,6 @@
 /**
  * Scenario 6 - over many seeds, the casualty behind the start position is never the walker, F or X.
- * Covers the casualty rules in the brief: the one behind is always a breathing non-walker (A-E).
+ * Covers the casualty rules in the brief: the one behind is always a breathing non-walker (A-E, G, H or J).
  * Part 1 checks the pure layout logic over 300 seeds x 3 Black settings; part 2 checks the built scene objects
  * for a spread of seeds.
  */
@@ -11,7 +11,7 @@ import {generateRun, validateRun, ForceBlack} from "../Scripts/TriageLayout"
 import {CASUALTY_TABLE} from "../Scripts/TriageData"
 import {getTriageMain, startFixedRun, casualtyObjects, resetToFreshStart} from "./TriageLeafHelpers"
 
-const BEHIND_ALLOWED = ["A", "B", "C", "D", "E"]
+const BEHIND_ALLOWED = ["A", "B", "C", "D", "E", "G", "H", "J"] // breathing non-walkers (bigger pool: G, H and J too)
 
 @component
 export class TriageBehindRuleScenario extends Scenario {

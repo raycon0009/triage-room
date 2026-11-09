@@ -107,5 +107,5 @@ export class TriageCallOutScenario extends Scenario {
 }
 
 function CASUALTY_WALKS(id: string): boolean {
-  return id === "W1" || id === "W2"
+  return id === "W1" || id === "W2" || id === "W3"
 }

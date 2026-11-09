@@ -37,6 +37,7 @@ Select the TriageMain object and tick **Use demo seed**. It gives a fixed layout
   - `node devpost/tests/learn-chips.test.mjs`
   - `node devpost/tests/debrief-layout.test.mjs`
   - `node devpost/tests/first-seen.test.mjs`
+  - `node devpost/tests/pool.test.mjs`
 
 ## Honest limits
 

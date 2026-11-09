@@ -28,7 +28,7 @@ export class TriageBehindScenario extends Scenario {
     expect(behind[0].sceneObjectName).toBe(behindObjs[0].name)
     expect(behind[0].id).toBe(state.behindId)
     expect(behind[0].walks).toBe(false)
-    expect(["A", "B", "C", "D", "E"].indexOf(behind[0].id)).toBeGreaterThan(-1)
+    expect(["A", "B", "C", "D", "E", "G", "H", "J"].indexOf(behind[0].id)).toBeGreaterThan(-1)
 
     // The other three are all in front of the start position.
     const front = objs.filter((o) => o.name !== behindObjs[0].name)

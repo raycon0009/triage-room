@@ -5,7 +5,7 @@
  * Must not: contain any START/check logic or touch the scene.
  */
 
-export type CasualtyId = "W1" | "W2" | "A" | "B" | "C" | "D" | "E" | "F" | "X"
+export type CasualtyId = "W1" | "W2" | "W3" | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "J" | "X"
 export type TagColour = "Green" | "Yellow" | "Red" | "Black"
 export type PoseKind =
   | "sitting_arm_cut"
@@ -47,9 +47,20 @@ export const POSE_INFO: { [k: string]: PoseInfo } = {
   lying_back_arm_up: { label: "Lying on back, arm up", short: "Arm up", group: "lying" },
 }
 
+/** The pool, in the order the layout draws from it. */
+export const WALKER_IDS: CasualtyId[] = ["W1", "W2", "W3"]
+/** Breathing non-walkers: any of these may be the person behind the player (never a walker, F or X). */
+export const BEHIND_IDS: CasualtyId[] = ["A", "B", "C", "D", "E", "G", "H", "J"]
+/** Non-walkers that can fill the other two non-walker slots (F joins them; X has its own roll). */
+export const NON_WALKER_IDS: CasualtyId[] = ["A", "B", "C", "D", "E", "F", "G", "H", "J"]
+/** The pool before the bigger pool (demo seed 77 keeps drawing from it, so its documented layout never changes). */
+export const LEGACY_WALKER_IDS: CasualtyId[] = ["W1", "W2"]
+export const LEGACY_BEHIND_IDS: CasualtyId[] = ["A", "B", "C", "D", "E"]
+export const LEGACY_NON_WALKER_IDS: CasualtyId[] = ["A", "B", "C", "D", "E", "F"]
+
 /**
  * The believable poses each case can take (the first is the default, used by the demo seed). Rules:
- * walkers are always seated; F and X only lie still (never upright, never groaning); A-E any lying / sitting / slumped.
+ * walkers are always seated; F and X only lie still (never upright, never groaning); A-E, G, H and J any lying / sitting / slumped.
  * The same pose is offered to cases with different tags, so appearance never predicts the tag.
  */
 export const POSE_CHOICES: { [id: string]: PoseKind[] } = {
@@ -61,6 +72,10 @@ export const POSE_CHOICES: { [id: string]: PoseKind[] } = {
   D: ["lying_groaning", "lying_back_arm_up", "lying_side"],
   E: ["sitting_dazed", "slumped_against_wall", "sitting_knees_up"],
   F: ["lying_face_up_still", "lying_back", "lying_side"],
+  G: ["lying_back", "sitting_leaning_back", "lying_side"],
+  H: ["sitting_knees_up", "lying_back", "slumped_against_wall"],
+  J: ["lying_back_arm_up", "sitting_dazed", "lying_groaning"],
+  W3: ["sitting_dazed", "sitting_leaning_back", "sitting_knees_up"],
   X: ["lying_face_up_still", "lying_back", "lying_side"],
 }
 
@@ -103,6 +118,10 @@ export const CASUALTY_TABLE: { [id: string]: CasualtyDef } = {
   D: def({ id: "D", pose: "lying_groaning", poseLabel: "Lying, groaning", walks: false, breathing: true, breathingAfterAirway: null, respRate: 16, radialPulse: "present", refillSeconds: 1, followsCommands: true, correctTag: "Yellow", decidingStep: 5, upright: false }),
   E: def({ id: "E", pose: "sitting_dazed", poseLabel: "Sitting, dazed", walks: false, breathing: true, breathingAfterAirway: null, respRate: 28, radialPulse: "present", refillSeconds: 1, followsCommands: true, correctTag: "Yellow", decidingStep: 5, upright: true }),
   F: def({ id: "F", pose: "lying_face_up_still", poseLabel: "Lying face up, still", walks: false, breathing: false, breathingAfterAirway: true, respRate: null, radialPulse: null, refillSeconds: null, followsCommands: null, correctTag: "Red", decidingStep: 2, upright: false }),
+  G: def({ id: "G", pose: "lying_back", poseLabel: "Lying on back", walks: false, breathing: true, breathingAfterAirway: null, respRate: 20, radialPulse: "present", refillSeconds: 3, followsCommands: null, correctTag: "Red", decidingStep: 4, upright: false }),
+  H: def({ id: "H", pose: "sitting_knees_up", poseLabel: "Sitting, knees up", walks: false, breathing: true, breathingAfterAirway: null, respRate: 24, radialPulse: "present", refillSeconds: 1, followsCommands: true, correctTag: "Yellow", decidingStep: 5, upright: true }),
+  J: def({ id: "J", pose: "lying_back_arm_up", poseLabel: "Lying on back, arm up", walks: false, breathing: true, breathingAfterAirway: null, respRate: 32, radialPulse: null, refillSeconds: null, followsCommands: null, correctTag: "Red", decidingStep: 3, upright: false }),
+  W3: def({ id: "W3", pose: "sitting_dazed", poseLabel: "Sitting, dazed", walks: true, breathing: null, breathingAfterAirway: null, respRate: null, radialPulse: null, refillSeconds: null, followsCommands: null, correctTag: "Green", decidingStep: 0, upright: true }),
   X: def({ id: "X", pose: "lying_face_up_still", poseLabel: "Lying face up, still", walks: false, breathing: false, breathingAfterAirway: false, respRate: null, radialPulse: null, refillSeconds: null, followsCommands: null, correctTag: "Black", decidingStep: 2, upright: false }),
 }
 

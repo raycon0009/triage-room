@@ -515,3 +515,59 @@ Small fixes only, on `main` (merged `render-polish` first: already up to date, m
 - Shoes (one yellow, one pink) were left alone as asked (shirt and trousers only); they are small.
 - Demo seed layout, cases and poses unchanged (palettes do not feed the layout); the looks of the demo seed's figures do change colour. All 23 LEAF scenarios and all six node files pass.
 - `Assets/Scene.scene`: committed the LEAF Plugin Bridge object and component ID change; the diff held nothing else.
+
+## Bigger casualty pool: refill case, more variety
+
+Tag `before-bigger-pool` marks the commit before this change (509c72d).
+
+### What changed
+- `TriageData.ts`: four cases. G (breathing, rate 20, pulse present, refill 3 s, Red at step 4: the first case decided by refill), H (rate 24, refill 1 s, obeys, Yellow at step 5), J (rate 32, Red at step 3), W3 (walker, Green at step 0). Each has 3 of the existing 12 poses (no new poses): G lying on back / sitting leaning back / lying on side; H sitting knees up / lying on back / slumped; J lying on back arm up / sitting dazed / lying groaning; W3 sitting dazed / sitting leaning back / sitting knees up (dazed and leaning back are the serious-looking ones). G's first pose was lying-on-back-with-knee-up, but that pose was offered only to A, which is also Red, so it hinted the tag; I changed it to lying on back, which five other cases share. No scripted rate is 30 and no refill is 2 s.
+- `TriageLayout.ts`: the walker is drawn from W1, W2 or W3; the person behind from A–E, G, H, J (never a walker, F or X); the other two non-walkers from A–F, G, H, J; X is still the same one-in-three roll. The number of random draws is unchanged, so every seed keeps its positions and only who stands there differs. **Seed 77 draws from the original pool, so it is pinned and exactly as documented** (Black on: D behind, C at the wall, X front-left, W1 front-right, its default poses; the other two Black modes also unchanged).
+- `TriageScoring.ts`: the refill line now reads "Refill 3 s is over 2 s → Red" (was "over 2"); short names for G, H, J, W3. G's, J's, H's and W3's explanations are at most 28 characters, shorter than the longest existing short line (40), and the panel-fit tests cover them.
+- The card's existing text for a refill is "Pulse present, refill 3 s"; I left it (an existing brief wording), so G's card shows it, and the tag buttons appear only after that button is pressed.
+
+### Seeds that changed
+- Every seed except 77 gives a different cast (1192 of 1200 seed/mode combinations in a 1 to 400 x 3 survey, the other 8 are seed 77 and 5 chance matches). Documented seeds: **21** (captures `render-before/after-seed21.jpg`, `step3-seed21-layout.jpg`; was B, C, W1, D, now C, W2, E, F) and **42** (build-log note on forced Black repeating; now H, W2, B, F). Their captures show the old casts; they were taken before this change. No test hard-codes a seed's cast (they search for a seed with a wanted case).
+
+### Tests
+- New Node `devpost/tests/pool.test.mjs` (45 checks; `load-layout.mjs` loads the pure layout modules into Node): each new case gives its tag and step with 0 extra checks; G tagged after an extra check is Red, step 4, 1 extra; explanations; poses; 3000 seeds x 3 modes (exactly 4 casualties, 1 walker, the person behind always allowed, every case appears, walkers about a third each, X about 1 in 3); demo seed 77 pinned.
+- `debrief-layout.test.mjs`: 3 added casts with the new cases, all 81 combinations each. `scoring.test.mjs`: the explanation-length list now includes the new ids.
+- Existing LEAF scenarios that hard-coded the old pool, updated (nothing weakened): `triage-behind-never-walker-f-x` and `triage-one-behind` (allowed behind list now includes G, H, J); `triage-callout-walker-only` (its walker helper includes W3); `triage-real-size-on-floor` (13 cases measured instead of 9).
+- New LEAF `triage-bigger-pool`: G in Learn (card shows rate 20, tags hidden, then refill 3 s and tags offered; chips done,done,done,decided RED; tagged Red, 0 extra, step 4); G tagged wrongly in Drill gives "Refill 3 s is over 2 s → Red" in the debrief and the panel still fits the view; H, J and W3 appear with their scripted results.
+- Capture: `devpost/captures/pool-g-card-refill.jpg` (G's card after the pulse / refill press).
+
+### Not proven
+- The pose set is unchanged, so a new case looks like an old one by design. Which pose each new case takes in a run is random; real glasses not tested.
+
+
+### LEAF results (all 25, one at a time, in the preview)
+
+The sweep stalled on 6-7 Nov because of the Lens Studio preview, not a test failure. It was finished on 9 Nov after a Lens Studio restart: the last three scenarios (hints-by-mode, debrief-first-seen, tag-word-in-view) were run after a recompile, each after its own preview reset. No file changed after 6 Nov 22:50, so the other 22 results stand. All 7 Node test files pass.
+
+| Scenario | Result |
+|---|---|
+| triage-start-four-casualties | PASS |
+| triage-one-behind | PASS |
+| triage-scenario-line | PASS |
+| triage-seed-repeatable | PASS |
+| triage-real-size-on-floor | PASS |
+| triage-behind-never-walker-f-x | PASS |
+| triage-card-opens-proximity-and-open | PASS |
+| triage-card-scripted-results-and-tag-gating | PASS |
+| triage-tag-closes-card-adds-band | PASS |
+| triage-start-rules-in-lens | PASS |
+| triage-callout-walker-only | PASS |
+| triage-timer-chime-and-time-up | PASS |
+| triage-groan-and-arrow-behind | PASS |
+| triage-debrief-all-tagged | PASS |
+| triage-debrief-time-up-not-reached | PASS |
+| triage-restart-and-seeds | PASS |
+| triage-start-screen | PASS |
+| triage-pose-variation | PASS |
+| triage-learn-mode | PASS |
+| triage-debrief-reveal | PASS |
+| triage-scene-clear | PASS |
+| triage-hints-by-mode | PASS |
+| triage-debrief-first-seen | PASS |
+| triage-tag-word-in-view | PASS |
+| triage-bigger-pool | PASS |

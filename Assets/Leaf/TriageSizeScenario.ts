@@ -43,8 +43,8 @@ export class TriageSizeScenario extends Scenario {
         }
       }
     }
-    // every pose in the pool was measured: W1, W2, A, B, C, D, E, F, X
-    expect(Object.keys(checked).length).toBe(9)
+    // every case in the pool was measured: W1, W2, W3, A, B, C, D, E, F, G, H, J, X
+    expect(Object.keys(checked).length).toBe(13)
 
     resetToFreshStart(tm)
   }

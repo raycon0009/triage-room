@@ -17,12 +17,16 @@ const WORD: { [tag: string]: string } = { Green: "GREEN", Yellow: "YELLOW", Red:
 export const SHORT_NAME: { [id: string]: string } = {
   W1: "Arm cut",
   W2: "Hurt ankle",
+  W3: "Dazed",
   A: "On back",
   B: "On side",
   C: "Slumped",
   D: "Groaning",
   E: "Dazed",
   F: "Face up",
+  G: "Knee up",
+  H: "Knees up",
+  J: "Arm up",
   X: "Face up",
 }
 
@@ -102,7 +106,7 @@ export function ruleLine(def: CasualtyDef): string {
     case 3:
       return "Rate " + def.respRate + " is over 30 → Red"
     case 4:
-      return def.radialPulse === "absent" ? "Radial pulse absent → Red" : "Refill " + def.refillSeconds + " s is over 2 → Red"
+      return def.radialPulse === "absent" ? "Radial pulse absent → Red" : "Refill " + def.refillSeconds + " s is over 2 s → Red"
     case 5:
       return def.followsCommands ? "Rate under 30, pulse OK, obeys → Yellow" : "Rate under 30, pulse OK, no obey → Red"
     default:

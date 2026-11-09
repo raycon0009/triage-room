@@ -19,8 +19,8 @@ const IDS = ["W1", "A", "D", "X"] // the demo-seed cast: walker, Red, Yellow, Ex
 const VIEW_HALF_V_DEG = 17 // measured limit of the preview view from the start position (see TriageLeafDebriefChecks)
 const DROP = 3 // panel centre is 3 cm below eye level, 120 cm ahead
 
-function entries(statuses) {
-  const raw = IDS.map((id, i) => {
+function entries(statuses, ids = IDS) {
+  const raw = ids.map((id, i) => {
     const def = CASUALTY_TABLE[id]
     const tag = statuses[i] === "missed" ? null : statuses[i] === "correct" ? def.correctTag : def.correctTag === "Red" ? "Yellow" : "Red"
     return buildEntry({ def, tag, openSeconds: 5, extraChecks: 0, calledOut: false, calledOutAtSeconds: null })
@@ -37,6 +37,12 @@ for (const a of S) for (const b of S) for (const c of S) for (const d of S) {
   const lay = layoutPanel(entries([a, b, c, d]))
   const ang = angle(lay.height)
   if (ang > worst) { worst = ang; worstCombo = [a, b, c, d].join(",") }
+}
+// the bigger pool: casts with the new cases (refill, rate 32, a seated walker, a yellow) fit the view in all 81 combinations too
+for (const cast of [["W3", "G", "J", "X"], ["H", "G", "J", "W3"], ["G", "H", "J", "X"]]) {
+  let w = 0
+  for (const a of S) for (const b of S) for (const c of S) for (const d of S) w = Math.max(w, angle(layoutPanel(entries([a, b, c, d], cast)).height))
+  check("bigger pool, cast " + cast.join(",") + ": all 81 status combinations fit the view with 1 degree to spare", w < VIEW_HALF_V_DEG - 1, { worstDeg: Math.round(w * 100) / 100 })
 }
 check("all 81 status combinations fit the view with 1 degree to spare", worst < VIEW_HALF_V_DEG - 1, { worstDeg: Math.round(worst * 100) / 100, worstCombo })
 

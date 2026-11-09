@@ -4,13 +4,25 @@
  * Coordinates are floor-relative centimetres: x right, z toward the user's BACK (user starts at 0,0
  * facing -Z, so negative z is in front, positive z is behind).
  * Rules (design brief "Rules for choosing a run's casualties"):
- *  - exactly 1 walker (W1/W2) + 3 non-walkers from A-F and X
- *  - the casualty behind the start position is always a breathing non-walker A-E
+ *  - exactly 1 walker (W1/W2/W3) + 3 non-walkers from A-H, J and X
+ *  - the casualty behind the start position is always a breathing non-walker (A-E, G, H or J), never F or X
  *  - X (Black) in about 1 run in 3 ("auto"), never behind; forceBlack on/off overrides when a fixed seed is set
  *  - same seed + same forceBlack => identical layout
  * Must not: touch the scene.
  */
-import { CasualtyId, CASUALTY_TABLE, PoseKind, POSE_CHOICES, POSE_INFO } from "./TriageData"
+import {
+  CasualtyId,
+  CASUALTY_TABLE,
+  PoseKind,
+  POSE_CHOICES,
+  POSE_INFO,
+  WALKER_IDS,
+  BEHIND_IDS,
+  NON_WALKER_IDS,
+  LEGACY_WALKER_IDS,
+  LEGACY_BEHIND_IDS,
+  LEGACY_NON_WALKER_IDS,
+} from "./TriageData"
 
 export type ForceBlack = "auto" | "on" | "off"
 export type SlotName = "behind" | "wall" | "frontLeft" | "frontRight"
@@ -113,9 +125,12 @@ export function generateRun(seed: number, forceBlack: ForceBlack): RunLayout {
   const rng = mulberry32(seed)
   const blackRoll = rng()
   const black = forceBlack === "on" ? true : forceBlack === "off" ? false : blackRoll < 1 / 3
-  const walkerId: CasualtyId = rng() < 0.5 ? "W1" : "W2"
-  const behindId = pick<CasualtyId>(rng, ["A", "B", "C", "D", "E"])
-  const rest = (["A", "B", "C", "D", "E", "F"] as CasualtyId[]).filter((id) => id !== behindId)
+  // The demo seed keeps drawing from the original pool (W1/W2, A-F), so its documented layout never changes. Every other
+  // seed draws from the bigger pool. The random draws are the same in number either way, so positions do not shift.
+  const legacy = seed === DEMO_SEED
+  const walkerId: CasualtyId = pick<CasualtyId>(rng, legacy ? LEGACY_WALKER_IDS : WALKER_IDS)
+  const behindId = pick<CasualtyId>(rng, legacy ? LEGACY_BEHIND_IDS : BEHIND_IDS)
+  const rest = (legacy ? LEGACY_NON_WALKER_IDS : NON_WALKER_IDS).filter((id) => id !== behindId)
   let others: CasualtyId[]
   if (black) {
     others = ["X", pick(rng, rest)]
@@ -205,7 +220,7 @@ export function validateRun(run: RunLayout): string[] {
   if (behind.length !== 1) errs.push("need exactly 1 behind")
   else {
     const d = CASUALTY_TABLE[behind[0].id]
-    if (d.walks || !d.breathing || ["F", "X"].indexOf(d.id) >= 0 || behind[0].z <= 0) errs.push("behind must be breathing non-walker A-E with z>0")
+    if (d.walks || !d.breathing || ["F", "X"].indexOf(d.id) >= 0 || behind[0].z <= 0) errs.push("behind must be a breathing non-walker (not F or X) with z>0")
   }
   const xs = run.casualties.filter((c) => c.id === "X")
   if (xs.length > 0 && xs[0].behind) errs.push("X must not be behind")

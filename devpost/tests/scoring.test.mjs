@@ -56,7 +56,7 @@ check("others keep their order", ordered.slice(1).map((e) => e.id).join() === "W
 const two = orderRows([entry("A", "Red"), entry("D", null), entry("C", null), entry("B", "Red")])
 check("several missed: all first, in their order", two.map((e) => e.id).join() === "D,C,A,B")
 check("short names + stats", entry("E", "Yellow").shortName === "Dazed" && entry("W2", "Green").shortName === "Hurt ankle" && a.statsText === "10 s · 0 extra", [entry("E", "Yellow").shortName, a.statsText])
-check("every explanation fits a short line (<= 40 chars); only Expectant wraps (<= 3 lines)", ["W1", "W2", "A", "B", "C", "D", "E", "F", "X"].every((id) => [entry(id, null).explanation, entry(id, "Red").explanation].every((t) => t.length <= (id === "X" ? 120 : 40))))
+check("every explanation fits a short line (<= 40 chars); only Expectant wraps (<= 3 lines)", ["W1", "W2", "W3", "A", "B", "C", "D", "E", "F", "G", "H", "J", "X"].every((id) => [entry(id, null).explanation, entry(id, "Red").explanation].every((t) => t.length <= (id === "X" ? 120 : 40))))
 
 console.log("\n" + pass + " passed, " + fail + " failed")
 process.exit(fail ? 1 : 0)
