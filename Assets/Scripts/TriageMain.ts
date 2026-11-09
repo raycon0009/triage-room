@@ -180,7 +180,7 @@ export class TriageMain extends BaseScriptComponent {
   private restartCount = 0
   private runMode: "learn" | "drill" = "drill"
 
-  /** "learn" (START guide chips on the card) or "drill" (as before). A restart keeps the mode. */
+  /** "learn" (START guide chips on the card) or "drill" (as before). A restart keeps the mode unless it is given another. */
   getMode(): "learn" | "drill" {
     return this.runMode
   }
@@ -194,8 +194,11 @@ export class TriageMain extends BaseScriptComponent {
    * destroyed; cards, clock, call-out, groan / arrow and debrief reset through onRegenerated) and start a new run.
    * No arguments: use the inspector settings - a random seed whose cases / slots differ from the last run, or the
    * fixed / demo seed if one is set. With a seed (tests): that seed, fixed.
+   * mode: "learn" or "drill" starts the new run in that mode (the debrief's "Again: Learn" / "Again: Drill"); left out, the
+   * run keeps the mode it had.
    */
-  restart(seed?: number, forceBlack?: string): RunState {
+  restart(seed?: number, forceBlack?: string, mode?: string): RunState {
+    if (mode) this.setMode(mode) // before the layout is rebuilt, so everything that rebuilds on it sees the new mode
     let state: RunState
     if (seed !== undefined) {
       state = this.regenerate(seed, forceBlack || "auto")

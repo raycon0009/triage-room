@@ -203,8 +203,8 @@ export class TriageLearnModeScenario extends Scenario {
     expect((debrief.getSummary() as {text: string}).text.indexOf("Learn · 1 of 4 correct") === 0).toBe(true)
     assertPanelReadableAndInView(debrief, tm, true) // the longer first line still fits the panel
 
-    // ---- Restart keeps the mode (still Learn): a new run, chips on its card
-    await pressButton("RestartButton")
+    // ---- "Again: Learn" in a Learn debrief keeps the mode: a new run, chips on its card
+    await pressButton("AgainLearnButton")
     await sleep(600)
     expect(tm.isStarted()).toBe(true)
     expect(tm.getMode()).toBe("learn")
@@ -215,7 +215,7 @@ export class TriageLearnModeScenario extends Scenario {
     expect(cards.getLearnChips().visible).toBe(true)
     cards.closeCard()
 
-    // ---- Drill debrief: no mode prefix, and Restart keeps Drill
+    // ---- Drill debrief: no mode prefix, and "Again: Drill" keeps Drill
     startFixedDrill(tm, cards)
     await sleep(400)
     expect(await tagWithChecks(cards, "X", "Black")).toBe(true)
@@ -227,7 +227,7 @@ export class TriageLearnModeScenario extends Scenario {
     await sleep(2200)
     const drillLines = debrief.getSummaryLines()
     expect(drillLines[0]).toBe("1 of 4 correct · 3 missed")
-    await pressButton("RestartButton")
+    await pressButton("AgainDrillButton")
     await sleep(600)
     expect(tm.getMode()).toBe("drill")
     cards.openCard(tm.getRunState().casualties[0].id, "button")

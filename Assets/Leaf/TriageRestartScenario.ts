@@ -84,15 +84,15 @@ export class TriageRestartScenario extends Scenario {
     expect(debrief.getReason()).toBe("time")
     expect(countNamed("TagBand_")).toBeGreaterThan(1)
     expect(countNamed("DebriefPanel")).toBe(1)
-    // wait (up to 4 s) until the reveal has made the Restart button pressable, instead of a fixed 1.3 s that raced the reveal
-    for (let i = 0; i < 40 && !findInteractableByName("RestartButton"); i++) {
+    // wait (up to 4 s) until the reveal has made the Again button pressable, instead of a fixed 1.3 s that raced the reveal
+    for (let i = 0; i < 40 && !findInteractableByName("AgainLearnButton"); i++) {
       await sleep(100)
     }
     await sleep(200)
 
-    // ---- pinch Restart (the real button)
+    // ---- pinch "Again: Learn" (the real button; this run is Learn)
     expect((debrief.getRestartButtonObject() as SceneObject) === null).toBe(false)
-    await pressButton("RestartButton")
+    await pressButton("AgainLearnButton")
     for (let i = 0; i < 30 && debrief.isOpen(); i++) {
       await sleep(100)
     }
@@ -122,7 +122,7 @@ export class TriageRestartScenario extends Scenario {
     expect(countNamed("DebriefMap")).toBe(0)
     expect(countNamed("NotReachedWorld_")).toBe(0)
     expect(countNamed("Marker_")).toBe(0)
-    expect(countNamed("RestartButton")).toBe(0)
+    expect(countNamed("Again")).toBe(0)
     expect(countNamed("TagBand_")).toBe(0)
     expect(countNamed("GroanSource")).toBe(1) // only the new run's
     expect(countNamed("Casualty_")).toBe(4)

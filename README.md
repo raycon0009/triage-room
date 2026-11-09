@@ -6,13 +6,13 @@ A timed mass-casualty triage drill for Snap Spectacles, built in Lens Studio. It
 
 ## How a run works
 
-1. Press **Learn** or **Drill**. Both start the same timed run (a short scenario line and a 3-minute timer). Learn adds a START guide: a row of five step chips (Walks? · Breath? · Rate · Pulse · Obeys?) across the top of the check card. The current step is highlighted, the step that decides the tag shows the tag colour and word, and steps not reached stay dim. Drill is the plain drill with no guide. The debrief notes the mode ("Learn · 3 of 4 correct · ..."), and Restart keeps the mode.
+1. Press **Learn** or **Drill**. Both start the same timed run (a short scenario line and a 3-minute timer). Learn adds a START guide: a row of five step chips (Walks? · Breath? · Rate · Pulse · Obeys?) across the top of the check card. The current step is highlighted, the step that decides the tag shows the tag colour and word, and steps not reached stay dim. Drill is the plain drill with no guide. The debrief notes the mode ("Learn · 3 of 4 correct · ...").
 2. Walk to a casualty. A check card opens when you are close.
 3. Run the START checks with the buttons: breathing, rate, pulse / refill, follows commands. Use Open airway if they are not breathing.
 4. Tag them: Green, Yellow, Red or Expectant. Call out to the walking casualty to send them to the green zone.
 5. Someone behind you groans. **Drill:** one groan about 1.5 s after Start, with the caption "A groan, somewhere behind you" and no arrow, so you can really miss them. **Learn:** the groan repeats (same caption) and an arrow at the edge of your view points to them until you first see them, then it stops for good.
 6. After your first tag or call-out a **Scene clear** button follows you at the bottom of your view. Pinch it and you are asked "Have you found everyone?". "Keep looking" carries on; "Yes, scene clear" ends the run. Anyone you did not tag shows NOT REACHED and counts as wrong.
-7. When all are tagged, you say scene clear, or time is up, a debrief shows each casualty: your tag, the correct tag, the rule that decides it, time taken, extra checks, and anyone you never reached. Under the summary it says when everyone came into view ("Everyone in view by 0:48" or "1 person never came into view"), and "You started before seeing everyone" if you tagged someone first. After a Restart, the debrief also compares this run with the last one (correct tags and when everyone came into view, with each run's mode). Restart gives a new layout. The debrief map shows a ring of the directions that were in view before your first tag or call-out.
+7. When all are tagged, you say scene clear, or time is up, a debrief shows each casualty: your tag, the correct tag, the rule that decides it, time taken, extra checks, and anyone you never reached. Under the summary it says when everyone came into view ("Everyone in view by 0:48" or "1 person never came into view"), and "You started before seeing everyone" if you tagged someone first. Above the buttons it gives one line of advice for the next run (for example "Next run: look all the way round before your first check"). Two buttons at waist height let you choose the next run: **Again: Learn** or **Again: Drill**. Either gives a new layout in the mode you picked (the start screen does not come back). After that second run, the debrief also compares this run with the last one (correct tags and when everyone came into view, with each run's mode). The debrief map shows a ring of the directions that were in view before your first tag or call-out.
 
 Poses vary between runs, so you can't tag by appearance — you have to check.
 
@@ -23,7 +23,7 @@ Poses vary between runs, so you can't tag by appearance — you have to check.
 
 ## Demo seed
 
-Select the TriageMain object and tick **Use demo seed**. It gives a fixed layout with the Expectant case, a walker, and a groaning casualty behind you. It is used for the demo video. A restart repeats the same layout while it is on.
+Select the TriageMain object and tick **Use demo seed**. It gives a fixed layout with the Expectant case, a walker, and a groaning casualty behind you. It is used for the demo video. Pressing Again: Learn or Again: Drill repeats the same layout while it is on (in the mode you press).
 
 **To record a deliberate miss, use Drill** (the plain Drill button): with the demo seed the groaning person is behind you, and in Drill there is no arrow and the groan plays once. Tag the people in front, then pinch Scene clear and answer Yes without having turned round. Learn's arrow would give the person away.
 
@@ -40,6 +40,8 @@ Select the TriageMain object and tick **Use demo seed**. It gives a fixed layout
   - `node devpost/tests/pool.test.mjs`
   - `node devpost/tests/run-compare.test.mjs`
   - `node devpost/tests/look-ring.test.mjs`
+  - `node devpost/tests/groan-pick.test.mjs`
+  - `node devpost/tests/next-tip.test.mjs`
 
 ## Honest limits
 

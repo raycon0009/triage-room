@@ -14,12 +14,16 @@
  *      * the flat top-down map on the floor in front of the start position, each casualty a marker at their real
  *        position (scaled down) carrying the same number 1-4 as their row; the start position is marked.
  *      * a flashing "NOT REACHED" over every real casualty who was missed.
- *      * a Restart button at waist height just above the map (pinching it restarts: TriageMain.restart()).
+ *      * two buttons side by side at waist height just above the map, "Again: Learn" and "Again: Drill" (pinching one
+ *        restarts in that mode: TriageMain.restart(undefined, undefined, mode)), with one line of next-run tip above them
+ *        (TriageNextTip.tipFor).
  *  The timer, arrow, groan and open cards are already off at the end (TriageRunClock / TriageBehindCue).
  * Public API (for tests): isOpen(), getReason(), getEntries(), getSummary(), getPanelObject(), getPanelSizeCm(),
  *   getPanelCornersWorld(), getRowTexts(id), getRowTextColour(id, name), getRowTextSize(id, name), getMinTextSize(),
  *   getTextExtents(), getMarkerNumber(id), getMarkerObject(id), getRestartButtonObject(), getFlashLevel(),
- *   isNotReachedFlashing(id), getWorldFlashObject(id), getRetiredCount(), setViewerOverride(position), endGraceSeconds, flashHz.
+ *   isNotReachedFlashing(id), getWorldFlashObject(id), getRetiredCount(), setViewerOverride(position), endGraceSeconds, flashHz,
+ *   pressRestart() (restart in the current mode), pressAgain("learn" | "drill"), getAgainButtonObject(mode),
+ *   getTipText(), getTipObject().
  * Restart: the old debrief is hidden at once and destroyed 0.5 s later, so the interactor that pinched Restart lets go of
  *   the button before it is destroyed (destroying a targeted Interactable gives "Object is null").
  */
@@ -34,10 +38,11 @@ import { TriageFigureBuilder, TAG_BAND_COLOUR } from "./TriageFigureBuilder"
 import { CASUALTY_TABLE } from "./TriageData"
 import { ROOM } from "./TriageLayout"
 import { RunRecord, compareLines, makeRecord } from "./TriageRunCompare"
+import { tipFor } from "./TriageNextTip"
 import { RING_LABEL, RING_SEGMENTS, SEGMENT_DEG } from "./TriageLookRing"
 import { DebriefEntry, DebriefSummary, buildEntry, orderRows, summarize } from "./TriageScoring"
 import { RoundedRectangle } from "SpectaclesUIKit.lspkg/Scripts/Visuals/RoundedRectangle/RoundedRectangle"
-import { DEBRIEF_SIZES, TEXT_SMALL, addPressPop, clamp01, easeOutCubic, finishMotion, lerp, showPanel } from "./TriageUi"
+import { DEBRIEF_BOOST, DEBRIEF_SIZES, TEXT_SMALL, addPressPop, sizesAt, clamp01, easeOutCubic, finishMotion, lerp, showPanel } from "./TriageUi"
 import {
   COL_B, COL_C, COL_D, COL_YOU_WORD, LEFT, MARGIN, PANEL_W, PAUSE_AFTER_TIMES_UP, REVEAL_FADE_SECONDS, RIGHT,
   RevealStep, layoutPanel, pitch, revealSchedule,
@@ -66,6 +71,19 @@ const SCENE_CLEAR_PAUSE = 0.6
 /** the panel itself fades and scales in over this long once it appears */
 const PANEL_IN = 0.26
 const PANEL_FROM = 0.92
+// ---- the "Again" buttons and the tip above them
+/** each plate and button is the old Restart button's size (plate 28 x 11, button 25 x 8.5), the plate narrowed to 26 so the pair fits the view */
+const AGAIN_PLATE_W = 26
+const AGAIN_PLATE_H = 11
+const AGAIN_BUTTON_W = 25
+const AGAIN_BUTTON_H = 8.5
+/** gap between the two plates (cm) */
+const AGAIN_GAP = 1
+/** how far in front of the map's centre the pair floats (cm); the old single button was at 45 */
+const AGAIN_FORWARD_CM = 40
+/** about how far the pair is from the eyes (cm): the tip text is sized for this, to the same angular size as the panel's small text */
+const AGAIN_DISTANCE_CM = 94
+const AGAIN_TIP_GAP = 1.2
 
 interface RowParts {
   id: string
@@ -145,6 +163,10 @@ export class TriageDebrief extends BaseScriptComponent {
   private panel: SceneObject | null = null
   private panelSize = { w: PANEL_W, h: 0 }
   private restartObj: SceneObject | null = null
+  private againButtons: { [mode: string]: SceneObject | null } = { learn: null, drill: null }
+  private tipObj: SceneObject | null = null
+  private tipText: Text | null = null
+  private nextTip = ""
   private rows: { [id: string]: RowParts } = {}
   private summaryTexts: Text[] = []
   /** the "in view" lines under the summary (when everyone came into view; started before seeing everyone) */
@@ -167,7 +189,8 @@ export class TriageDebrief extends BaseScriptComponent {
   private sinceOpen = 0
   private graceLeft = -1
   private flash = 1
-  private pendingRestart = false
+  /** a pinched "Again" button waiting for the next frame: "keep" = restart in the current mode */
+  private pendingAgain: "keep" | "learn" | "drill" | null = null
   // reveal (time's up -> pause -> panel -> NOT REACHED rows + marker over the real person -> the other rows one by one)
   private plan: RevealStep[] = []
   private panelAt = 0
@@ -350,8 +373,21 @@ export class TriageDebrief extends BaseScriptComponent {
     const r = this.rows[id]
     return r && r.markerNumber ? r.markerNumber.text : ""
   }
+  /** The object that holds both "Again" buttons and the tip (waist height, above the map). */
   getRestartButtonObject(): SceneObject | null {
     return this.restartObj && !isNull(this.restartObj) ? this.restartObj : null
+  }
+  /** The pinchable button object ("AgainLearnButton" / "AgainDrillButton") for a mode, or null. */
+  getAgainButtonObject(mode: "learn" | "drill"): SceneObject | null {
+    const o = this.againButtons[mode]
+    return o && !isNull(o) ? o : null
+  }
+  /** The next-run tip shown above the two buttons ("" before the debrief). */
+  getTipText(): string {
+    return this.tipText && !isNull(this.tipText) ? this.tipText.text : ""
+  }
+  getTipObject(): SceneObject | null {
+    return this.tipObj && !isNull(this.tipObj) ? this.tipObj : null
   }
   /** 0.3 .. 1: the current brightness of the "Not reached" flash (1 = the bright, white phase). */
   getFlashLevel(): number {
@@ -396,9 +432,13 @@ export class TriageDebrief extends BaseScriptComponent {
     for (const st of this.plan) end = Math.max(end, st.at + REVEAL_FADE_SECONDS)
     return end
   }
-  /** Same code path as pinching the Restart button. */
+  /** Restart in the current mode (kept for the earlier tests; the buttons use pressAgain). */
   pressRestart(): void {
-    this.pendingRestart = true
+    this.pendingAgain = "keep"
+  }
+  /** Same code path as pinching "Again: Learn" or "Again: Drill". */
+  pressAgain(mode: "learn" | "drill"): void {
+    this.pendingAgain = mode
   }
   /** Old (hidden) debriefs not yet destroyed; 0 about half a second after a restart. */
   getRetiredCount(): number {
@@ -442,11 +482,12 @@ export class TriageDebrief extends BaseScriptComponent {
   private tick(): void {
     if (!this.main || !this.clock) return
     this.destroyRetired()
-    if (this.pendingRestart) {
+    if (this.pendingAgain !== null) {
       // done here, not inside the button's own event, because restarting destroys the button
-      this.pendingRestart = false
+      const again = this.pendingAgain
+      this.pendingAgain = null
       if (this.open) {
-        this.main.restart()
+        this.main.restart(undefined, undefined, again === "keep" ? undefined : again)
         return
       }
     }
@@ -577,6 +618,9 @@ export class TriageDebrief extends BaseScriptComponent {
     this.map = null
     this.panel = null
     this.restartObj = null
+    this.againButtons = { learn: null, drill: null }
+    this.tipObj = null
+    this.tipText = null
     this.rows = {}
     this.summaryTexts = []
     this.viewTexts = []
@@ -594,7 +638,7 @@ export class TriageDebrief extends BaseScriptComponent {
     this.open = false
     this.sinceOpen = 0
     this.graceLeft = -1
-    this.pendingRestart = false
+    this.pendingAgain = null
     this.panelSize = { w: PANEL_W, h: 0 }
     this.plan = []
     this.panelAt = 0
@@ -637,6 +681,11 @@ export class TriageDebrief extends BaseScriptComponent {
     const thisRun = makeRecord(this.main.getMode() === "learn" ? "Learn" : "Drill", this.summary.correct, this.summary.total, fs.allSeenAt(), fs.neverSeenCount())
     this.compareLines = compareLines(this.lastRun, thisRun)
     this.lastRun = thisRun
+    this.nextTip = tipFor({
+      mode: thisRun.mode,
+      casualties: this.entries.map((e) => ({ id: e.id, walks: CASUALTY_TABLE[e.id].walks, myTag: e.myTag, correctTag: e.correctTag, extraChecks: e.extraChecks })),
+      startedBeforeEveryone: fs.startedBeforeEveryone(),
+    })
 
     this.root = global.scene.createSceneObject("DebriefRoot")
     this.root.setParent(this.sceneObject)
@@ -868,30 +917,49 @@ export class TriageDebrief extends BaseScriptComponent {
     root.getTransform().setWorldPosition(new vec3(0, -this.panelDropCm, -this.mapForwardCm))
   }
 
-  // ------------------------------------------------------------------ restart button
+  // ------------------------------------------------------------------ "Again" buttons and the tip
 
-  /** A Restart button at waist height just above the near part of the map (upright, so it can be reached standing). */
+  /**
+   * Two buttons side by side at waist height just above the near part of the map (upright, so they can be reached
+   * standing): "Again: Learn" and "Again: Drill", each the old Restart button's size and style, with the next-run tip in
+   * one line above them.
+   */
   private buildRestart(): void {
     const origin = this.mapOrigin()
     const root = global.scene.createSceneObject("DebriefRestart")
     root.setParent(this.root!)
-    root.getTransform().setWorldPosition(new vec3(0, this.floorY() + 100, origin.z + 45))
-    root.createComponent("Component.Canvas")
-    const back = root.createComponent(BackPlate.getTypeName()) as BackPlate
-    back.size = new vec2(28, 11)
-    const content = global.scene.createSceneObject("Content")
-    content.setParent(root)
-    content.getTransform().setLocalPosition(new vec3(0, 0, GUTTER_Z))
-    const so = global.scene.createSceneObject("RestartButton")
-    so.setParent(content)
-    const btn = so.createComponent(Button.getTypeName()) as Button
-    btn.size = new vec3(25, 8.5, 1)
-    const lab = global.scene.createSceneObject("ButtonLabel")
-    lab.setParent(so)
-    lab.getTransform().setLocalPosition(new vec3(0, 0, 0.08))
-    this.addText(lab, "Text", "Restart", DEBRIEF_SIZES.body, WHITE, 0, 0, "center", 24)
-    btn.onTriggerUp.add(() => this.pressRestart())
-    addPressPop(btn, so)
+    root.getTransform().setWorldPosition(new vec3(0, this.floorY() + 100, origin.z + AGAIN_FORWARD_CM))
+    const step = AGAIN_PLATE_W + AGAIN_GAP
+    const make = (mode: "learn" | "drill", label: string, x: number): void => {
+      const plate = global.scene.createSceneObject(mode === "learn" ? "AgainLearnPlate" : "AgainDrillPlate")
+      plate.setParent(root)
+      plate.getTransform().setLocalPosition(new vec3(x, 0, 0))
+      plate.createComponent("Component.Canvas")
+      const back = plate.createComponent(BackPlate.getTypeName()) as BackPlate
+      back.size = new vec2(AGAIN_PLATE_W, AGAIN_PLATE_H)
+      const content = global.scene.createSceneObject("Content")
+      content.setParent(plate)
+      content.getTransform().setLocalPosition(new vec3(0, 0, GUTTER_Z))
+      const so = global.scene.createSceneObject(mode === "learn" ? "AgainLearnButton" : "AgainDrillButton")
+      so.setParent(content)
+      const btn = so.createComponent(Button.getTypeName()) as Button
+      btn.size = new vec3(AGAIN_BUTTON_W, AGAIN_BUTTON_H, 1)
+      const lab = global.scene.createSceneObject("ButtonLabel")
+      lab.setParent(so)
+      lab.getTransform().setLocalPosition(new vec3(0, 0, 0.08))
+      this.addText(lab, "Text", label, DEBRIEF_SIZES.body, WHITE, 0, 0, "center", 24)
+      btn.onTriggerUp.add(() => this.pressAgain(mode))
+      addPressPop(btn, so)
+      this.againButtons[mode] = so
+    }
+    make("learn", "Again: Learn", -step / 2)
+    make("drill", "Again: Drill", step / 2)
+    // the tip: one line of light text just above the pair, the same angular size as the panel's small text
+    const tipSize = sizesAt(AGAIN_DISTANCE_CM, DEBRIEF_BOOST).small
+    const tipY = AGAIN_PLATE_H / 2 + AGAIN_TIP_GAP + pitch(tipSize) / 2
+    const tip = this.addText(root, "NextTip", this.nextTip, tipSize, TEXT_SMALL, 0, tipY, "center", 56)
+    this.tipObj = tip.sceneObject
+    this.tipText = tip
     this.restartObj = root
   }
 

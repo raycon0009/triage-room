@@ -733,3 +733,59 @@ Tag `before-groan-variants` marks the commit before this change (dce7be5).
 ### Not proven
 - Audio was not heard: the tests count plays and check which track is chosen. I cannot listen to the new groans, so how calm and natural they sound, and whether they feel like the same voice as the first, is unproven. They are synthetic.
 - The new groans are not wired into anything besides the cue; the recorded demo video still uses whichever groan the seed picks.
+
+## After a run: choose Learn or Drill, and a tip for the next run
+
+Tag `before-mode-choice` marks the commit before this change (f6fd110).
+
+### What changed
+- The debrief's one Restart button is now two: **Again: Learn** and **Again: Drill** (named `AgainLearnButton` / `AgainDrillButton`), side by side at waist height (centres 27 cm apart, each plate 26 x 11 cm, button 25 x 8.5 cm), centred 40 cm in front of the start. The buttons sit 5 cm lower than the old Restart button to leave room for the tip above them. `TriageMain.restart(seed?, forceBlack?, mode?)` takes the mode; `TriageDebrief` keeps `pressRestart()` (same mode) and adds `pressAgain("learn"|"drill")`. The restart is still carried out in `tick()`, not in the button event, because it destroys the button.
+- New pure module `TriageNextTip.ts`: `tipFor(...)` returns one of 8 tips (first matching rule wins; see design-brief item 7). The tip is one line of light text above the buttons, sized like the panel's small text (`sizesAt(94, DEBRIEF_BOOST).small`), laid out for the longest tip (60 characters; measured width 42.8 cm). No tip is shrunk to fit.
+- Existing scenarios edited for the new button names: `triage-learn-mode` and `triage-restart-and-seeds`. The waist-height check in `TriageLeafDebriefChecks` still works through `getRestartButtonObject()` (now the root holding both buttons and the tip).
+
+### Tests
+- New Node `next-tip.test.mjs` (33 checks): exact wording of all 8 tips, each rule alone, the priority between rules, every tip within 60 characters, one line each, no "looked at".
+- New LEAF `triage-mode-choice`: Drill run with one tag, nobody in view, Scene clear: both buttons exist and are pinchable, at waist height (90 to 110 cm above the floor) and within 105 cm reach, upright, facing the viewer; all button and tip corners are inside the view limits when looking at them (worst angle **15.76 degrees** horizontal against the 16 degree limit, so the margin is thin); the tip is rule 1, light, one line, above the buttons, and overlaps nothing (buttons, panel, map). Pinch Again: Learn gives Learn with a new layout and the START chips. A second Learn run with everyone in view and all tags right shows "Last run (Drill): 1 of 4" / "This run (Learn): 4 of 4" and the rule-7 tip. Pinch Again: Drill gives Drill.
+- All 11 Node test files pass, 311 checks (debrief-layout 40, figures 82, first-seen 18, groan-pick 9, learn-chips 15, look-ring 19, next-tip 33, pool 45, run-compare 15, scoring 23, start-engine 12 brief cases).
+
+### LEAF results (all 29, one at a time, each after its own preview reset and a list_leaf_scenarios answer)
+| Scenario | Result |
+|---|---|
+| triage-start-four-casualties | PASS |
+| triage-one-behind | PASS |
+| triage-scenario-line | PASS |
+| triage-seed-repeatable | PASS |
+| triage-real-size-on-floor | PASS |
+| triage-behind-never-walker-f-x | PASS |
+| triage-card-opens-proximity-and-open | PASS |
+| triage-card-scripted-results-and-tag-gating | PASS |
+| triage-tag-closes-card-adds-band | PASS |
+| triage-start-rules-in-lens | PASS |
+| triage-callout-walker-only | PASS |
+| triage-timer-chime-and-time-up | PASS |
+| triage-groan-and-arrow-behind | PASS |
+| triage-debrief-all-tagged | PASS (tool call timed out once; the log shows PASSED) |
+| triage-debrief-time-up-not-reached | PASS |
+| triage-restart-and-seeds | PASS (edited: presses AgainLearnButton, counts "Again" objects) |
+| triage-start-screen | PASS |
+| triage-pose-variation | PASS |
+| triage-learn-mode | PASS (edited: presses AgainLearnButton / AgainDrillButton; slow first start, passed on the log) |
+| triage-debrief-reveal | PASS |
+| triage-scene-clear | PASS |
+| triage-hints-by-mode | PASS |
+| triage-debrief-first-seen | PASS |
+| triage-tag-word-in-view | PASS |
+| triage-bigger-pool | PASS |
+| triage-run-compare | PASS |
+| triage-look-ring | PASS |
+| triage-groan-variants | PASS |
+| triage-mode-choice | PASS (new; first run looked stalled because Lens Studio was minimised, the log showed PASSED 16 s after its start) |
+
+The runs started slowly at first: Lens Studio had been minimised and a few tool calls timed out while the scenario still ran. Each result above was confirmed from the Lens Studio log by finding `PASSED: <id>` after that scenario's own start line. `list_leaf_scenarios` is cached and lagged the new registration; the run by id worked.
+
+### Capture
+- `devpost/captures/mode-choice-tip.jpg`: the debrief after a Drill run that missed three people: the rule-1 tip above Again: Learn and Again: Drill. Taken with CapturePanelScreenshotTool while a temporary scenario (deleted, `LeafIndex` restored) held the debrief open, camera lowered with MovePreviewCamera. A casualty figure on the floor shows behind the tip in this view; that is the scene, not the layout.
+
+### Not proven
+- Only seen in the Lens Studio preview. How the buttons feel to pinch at waist height, and whether the tip is readable on a device, is unproven.
+- The tip says "in view", which is head direction, not eye tracking.
